@@ -1,7 +1,7 @@
 import * as SecureStore from 'expo-secure-store';
+import { API_URL } from '../config';
 
-// REMEMBER TO USE YOUR COMPUTER'S IP ADDRESS
-const API_URL = 'http://10.51.8.5:3000/api';
+console.log('🚀 [API] Using dynamic API URL:', API_URL);
 
 // This is our central function for making API requests
 const api = async (endpoint, method = 'GET', body = null) => {

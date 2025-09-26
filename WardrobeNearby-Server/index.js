@@ -22,6 +22,27 @@ app.use('/api/items', itemRoutes);
 app.use('/api/rentals', rentalRoutes);
 app.use('/api/stories', storyRoutes); // --- USE STORY ROUTES ---
 
+// Get local network IP address dynamically
+const os = require('os');
+const getLocalIP = () => {
+  const interfaces = os.networkInterfaces();
+  for (const devName in interfaces) {
+    const iface = interfaces[devName];
+    for (let i = 0; i < iface.length; i++) {
+      const alias = iface[i];
+      if (alias.family === 'IPv4' && alias.address !== '127.0.0.1' && !alias.internal) {
+        return alias.address;
+      }
+    }
+  }
+  return 'localhost';
+};
+
+const localIP = getLocalIP();
+
 app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Server is running successfully on http://10.51.8.5:${PORT}`);
+  console.log(`🚀 Server is running successfully!`);
+  console.log(`📱 Mobile access: http://${localIP}:${PORT}`);
+  console.log(`💻 Local access: http://localhost:${PORT}`);
+  console.log(`🌐 Network access: http://0.0.0.0:${PORT}`);
 });
