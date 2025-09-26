@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -8,45 +8,59 @@ import Stories from '../components/Stories'; // --- IMPORT THE NEW STORIES COMPO
 import { useFocusEffect } from '@react-navigation/native';
 import api from '../utils/api';
 
-const HomeScreen = () => {
+const HomeScreen = React.memo(() => {
   const { logout } = useAuth();
   const [items, setItems] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false); // Changed initial value to false
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
 
-  const fetchItems = useCallback(async (query) => {
+  const fetchItems = useCallback(async (query = '', showLoader = true) => {
     try {
-      const data = await api(`/items?search=${query}`);
+      if (showLoader) setLoading(true);
+      const data = await api(`/items${query ? `?search=${encodeURIComponent(query)}` : ''}`);
       setItems(data);
     } catch (error) {
       console.error("Failed to fetch items:", error);
     } finally {
       setLoading(false);
       setRefreshing(false);
+      setIsInitialLoad(false);
     }
   }, []);
 
+  // Optimized search with debouncing
   useEffect(() => {
     const timer = setTimeout(() => {
-      setLoading(true);
-      fetchItems(searchQuery);
-    }, 300);
+      if (!isInitialLoad) {
+        fetchItems(searchQuery, false); // Don't show loading spinner for search
+      }
+    }, 500); // Increased debounce time to reduce API calls
     return () => clearTimeout(timer);
-  }, [searchQuery, fetchItems]);
+  }, [searchQuery, fetchItems, isInitialLoad]);
 
+  // Initial load only
   useFocusEffect(
     useCallback(() => {
-      setSearchQuery('');
-      setLoading(true);
-      fetchItems('');
-    }, [fetchItems])
+      if (isInitialLoad) {
+        fetchItems('', true);
+      }
+    }, [fetchItems, isInitialLoad])
   );
 
-  const onRefresh = () => {
+  const onRefresh = useCallback(() => {
     setRefreshing(true);
-    fetchItems(searchQuery);
-  };
+    fetchItems(searchQuery, false);
+  }, [searchQuery, fetchItems]);
+
+  // Memoize the renderItem function to prevent unnecessary re-renders
+  const renderItem = useCallback(({ item }) => (
+    <ItemCard key={item._id} item={item} />
+  ), []);
+
+  // Memoize the keyExtractor
+  const keyExtractor = useCallback((item) => item._id, []);
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -73,23 +87,33 @@ const HomeScreen = () => {
         </View>
       </View>
 
-      {loading && !refreshing ? (
+      {loading && isInitialLoad ? (
         <ActivityIndicator size="large" color="#957DAD" style={styles.loader} />
       ) : (
         <FlatList
           data={items}
-          renderItem={({ item }) => <ItemCard item={item} />}
-          keyExtractor={(item) => item._id}
+          renderItem={renderItem}
+          keyExtractor={keyExtractor}
           contentContainerStyle={styles.listContent}
           ListEmptyComponent={<Text style={styles.emptyText}>No items found. Try a different search!</Text>}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={["#957DAD"]} />
           }
+          removeClippedSubviews={true} // Performance optimization
+          maxToRenderPerBatch={10} // Render only 10 items per batch
+          updateCellsBatchingPeriod={50} // Update batching period
+          initialNumToRender={8} // Initial items to render
+          windowSize={10} // Viewport window size
+          getItemLayout={(data, index) => ({
+            length: 280, // Approximate item height (200 image + 80 content)
+            offset: 280 * index,
+            index,
+          })}
         />
       )}
     </SafeAreaView>
   );
-};
+});
 
 const styles = StyleSheet.create({
   container: {

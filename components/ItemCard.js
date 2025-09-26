@@ -1,17 +1,23 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { View, Text, StyleSheet, Image, TouchableOpacity } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 
 // We receive 'item' as a prop.
-const ItemCard = ({ item }) => {
+const ItemCard = React.memo(({ item }) => {
   const navigation = useNavigation();
   const [imageError, setImageError] = useState(false);
 
   // --- HANDLE PRESS EVENT ---
-  const handlePress = () => {
+  const handlePress = useCallback(() => {
     // Navigate to the 'ItemDetail' screen and pass the 'item' object as a parameter.
     navigation.navigate('ItemDetail', { item: item });
-  };
+  }, [navigation, item]);
+
+  const handleImageError = useCallback((e) => {
+    console.log('[ITEMCARD] Image load error for:', item.imageUrl, e.nativeEvent.error);
+    console.log('[ITEMCARD] Switching to fallback image');
+    setImageError(true);
+  }, [item.imageUrl]);
 
   // Fallback image for when the main image fails to load
   const fallbackImageUrl = 'https://dummyimage.com/600x400/E0BBE4/4A235A&text=No+Image';
@@ -27,11 +33,7 @@ const ItemCard = ({ item }) => {
         source={{ uri: displayUrl }} 
         style={styles.image}
         onLoad={() => console.log('[ITEMCARD] Image loaded successfully:', displayUrl)}
-        onError={(e) => {
-          console.log('[ITEMCARD] Image load error for:', item.imageUrl, 'Error:', e.nativeEvent.error);
-          console.log('[ITEMCARD] Switching to fallback image');
-          setImageError(true);
-        }}
+        onError={handleImageError}
       />
       
       <View style={styles.infoContainer}>
@@ -41,7 +43,7 @@ const ItemCard = ({ item }) => {
       </View>
     </TouchableOpacity>
   );
-};
+});
 
 const styles = StyleSheet.create({
     cardContainer: {

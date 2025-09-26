@@ -4,46 +4,56 @@ import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import api from '../utils/api';
 
-const Stories = () => {
+const Stories = React.memo(() => {
   const [groupedStories, setGroupedStories] = useState([]); // State will now hold grouped stories
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false); // Start with false to prevent initial spinner
+  const [hasLoaded, setHasLoaded] = useState(false);
   const navigation = useNavigation();
 
   const fetchAndGroupStories = useCallback(async () => {
     try {
-      setLoading(true);
+      if (!hasLoaded) setLoading(true); // Only show spinner on first load
       const flatStories = await api('/stories');
 
-      // --- THIS IS THE NEW GROUPING LOGIC ---
-      // 1. Group stories by user using a reducer
-      const storyGroups = flatStories.reduce((acc, story) => {
-        const userId = story.user._id;
-        if (!acc[userId]) {
-          // If this is the first story from this user, create a new group
-          acc[userId] = {
-            user: story.user,
-            stories: [],
-          };
-        }
-        // Add the current story to this user's group
-        acc[userId].stories.push(story);
-        return acc;
-      }, {});
+      // --- OPTIMIZED GROUPING LOGIC ---
+      if (flatStories && flatStories.length > 0) {
+        // 1. Group stories by user using a reducer
+        const storyGroups = flatStories.reduce((acc, story) => {
+          const userId = story.user._id;
+          if (!acc[userId]) {
+            // If this is the first story from this user, create a new group
+            acc[userId] = {
+              user: story.user,
+              stories: [],
+            };
+          }
+          // Add the current story to this user's group
+          acc[userId].stories.push(story);
+          return acc;
+        }, {});
 
-      // 2. Convert the groups object back into an array for rendering
-      const groupedArray = Object.values(storyGroups);
-      setGroupedStories(groupedArray);
+        // 2. Convert the groups object back into an array for rendering
+        const groupedArray = Object.values(storyGroups);
+        setGroupedStories(groupedArray);
+      } else {
+        setGroupedStories([]);
+      }
 
     } catch (error) {
       console.error("Failed to fetch stories:", error);
+      setGroupedStories([]); // Set empty array on error
     } finally {
       setLoading(false);
+      setHasLoaded(true);
     }
-  }, []);
+  }, [hasLoaded]);
 
+  // Only fetch on first focus, not every time
   useFocusEffect(useCallback(() => {
-    fetchAndGroupStories();
-  }, [fetchAndGroupStories]));
+    if (!hasLoaded) {
+      fetchAndGroupStories();
+    }
+  }, [fetchAndGroupStories, hasLoaded]));
 
   // --- NEW: Function to open the story viewer with a user's collection of stories ---
   const handleStoryPress = (storyGroup) => {
@@ -86,7 +96,7 @@ const Stories = () => {
       </ScrollView>
     </View>
   );
-};
+});
 
 const styles = StyleSheet.create({
   container: { paddingVertical: 15, borderBottomWidth: 1, borderBottomColor: '#E9ECEF', backgroundColor: '#FFFFFF' },

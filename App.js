@@ -1,23 +1,40 @@
-import React from "react";
+import React, { Suspense } from "react";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from '@expo/vector-icons';
+import { View, ActivityIndicator, StyleSheet } from 'react-native';
 
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import ErrorBoundary from "./components/ErrorBoundary";
 
-// Import all screens
-import WelcomeScreen from "./screens/WelcomeScreen";
-import LoginScreen from "./screens/LoginScreen";
-import SignUpScreen from "./screens/SignUpScreen";
-import HomeScreen from "./screens/HomeScreen";
-import AddItemScreen from "./screens/AddItemScreen";
-import ItemDetailScreen from "./screens/ItemDetailScreen";
-import ProfileScreen from "./screens/ProfileScreen";
-import AddStoryScreen from "./screens/AddStoryScreen";
-import StoryViewerScreen from "./screens/StoryViewerScreen";
+// Lazy load screens for better performance
+const WelcomeScreen = React.lazy(() => import("./screens/WelcomeScreen"));
+const LoginScreen = React.lazy(() => import("./screens/LoginScreen"));
+const SignUpScreen = React.lazy(() => import("./screens/SignUpScreen"));
+const HomeScreen = React.lazy(() => import("./screens/HomeScreen"));
+const AddItemScreen = React.lazy(() => import("./screens/AddItemScreen"));
+const ItemDetailScreen = React.lazy(() => import("./screens/ItemDetailScreen"));
+const ProfileScreen = React.lazy(() => import("./screens/ProfileScreen"));
+const AddStoryScreen = React.lazy(() => import("./screens/AddStoryScreen"));
+const StoryViewerScreen = React.lazy(() => import("./screens/StoryViewerScreen"));
+
+// Loading component
+const LoadingScreen = () => (
+  <View style={loadingStyles.container}>
+    <ActivityIndicator size="large" color="#957DAD" />
+  </View>
+);
+
+const loadingStyles = StyleSheet.create({
+  container: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#F8F9FA',
+  },
+});
 
 const AuthStack = createNativeStackNavigator();
 const MainStack = createNativeStackNavigator();
@@ -87,17 +104,19 @@ function AppNavigator() {
   const { user } = useAuth();
   return (
     <NavigationContainer>
-      {user ? (
-        // If user is logged in, show the main app flow
-        <MainFlow />
-      ) : (
-        // If no user, show the authentication flow
-        <AuthStack.Navigator screenOptions={{ headerShown: false }}>
-          <AuthStack.Screen name="Welcome" component={WelcomeScreen} />
-          <AuthStack.Screen name="Login" component={LoginScreen} />
-          <AuthStack.Screen name="SignUp" component={SignUpScreen} />
-        </AuthStack.Navigator>
-      )}
+      <Suspense fallback={<LoadingScreen />}>
+        {user ? (
+          // If user is logged in, show the main app flow
+          <MainFlow />
+        ) : (
+          // If no user, show the authentication flow
+          <AuthStack.Navigator screenOptions={{ headerShown: false }}>
+            <AuthStack.Screen name="Welcome" component={WelcomeScreen} />
+            <AuthStack.Screen name="Login" component={LoginScreen} />
+            <AuthStack.Screen name="SignUp" component={SignUpScreen} />
+          </AuthStack.Navigator>
+        )}
+      </Suspense>
     </NavigationContainer>
   );
 }

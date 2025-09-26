@@ -15,7 +15,10 @@ import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 import api from "../utils/api";
 
-const ProfileScreen = () => {
+// Fallback image for items without images
+const FALLBACK_IMAGE = 'https://dummyimage.com/200x200/E0BBE4/4A235A&text=No+Image';
+
+const ProfileScreen = React.memo(() => {
   const { user, logout } = useAuth();
   const [myListings, setMyListings] = useState([]);
   const [incomingRequests, setIncomingRequests] = useState([]);
@@ -29,10 +32,21 @@ const ProfileScreen = () => {
         api(`/items/user/${user.id}`),
         api("/rentals/incoming"),
       ]);
-      setMyListings(listingsData);
-      setIncomingRequests(requestsData);
+      
+      // Filter out any null/undefined items to prevent errors
+      const validListings = Array.isArray(listingsData) ? listingsData.filter(item => item) : [];
+      const validRequests = Array.isArray(requestsData) ? requestsData.filter(request => 
+        request && request.item && request.borrower
+      ) : [];
+      
+      setMyListings(validListings);
+      setIncomingRequests(validRequests);
     } catch (error) {
+      console.error("Profile data fetch error:", error);
       Alert.alert("Error", "Could not fetch your profile data.");
+      // Set empty arrays on error to prevent crashes
+      setMyListings([]);
+      setIncomingRequests([]);
     } finally {
       setLoading(false);
     }
@@ -56,42 +70,71 @@ const ProfileScreen = () => {
     }
   };
 
-  const renderItemRow = (item) => (
-    <View key={item._id} style={styles.itemRow}>
-      <Image source={{ uri: item.imageUrl }} style={styles.itemImage} />
-      <View style={styles.itemInfo}>
-        <Text style={styles.itemName}>{item.name}</Text>
+  const renderItemRow = (item) => {
+    // Add null check to prevent errors
+    if (!item) return null;
+    
+    return (
+      <View key={item._id} style={styles.itemRow}>
+        <Image 
+          source={{ uri: item.imageUrl || FALLBACK_IMAGE }} 
+          style={styles.itemImage}
+          onError={(error) => {
+            console.warn('Image loading error for item:', item.name, error);
+          }}
+          defaultSource={{ uri: FALLBACK_IMAGE }}
+        />
+        <View style={styles.itemInfo}>
+          <Text style={styles.itemName}>{item.name || 'Unknown Item'}</Text>
+        </View>
+        <Ionicons name="chevron-forward" size={24} color="#CED4DA" />
       </View>
-      <Ionicons name="chevron-forward" size={24} color="#CED4DA" />
-    </View>
-  );
+    );
+  };
 
   // --- NEW: Component for rendering an incoming request with buttons ---
-  const renderRequestRow = (request) => (
-    <View key={request._id} style={styles.requestRow}>
-      <Image source={{ uri: request.item.imageUrl }} style={styles.itemImage} />
-      <View style={styles.itemInfo}>
-        <Text style={styles.itemName}>{request.item.name}</Text>
-        <Text style={styles.itemSubtext}>
-          Requested by {request.borrower.name}
-        </Text>
+  const renderRequestRow = (request) => {
+    // Add comprehensive null checks to prevent errors
+    if (!request || !request.item || !request.borrower) {
+      console.warn('Invalid request data:', request);
+      return null;
+    }
+    
+    return (
+      <View key={request._id} style={styles.requestRow}>
+        <Image 
+          source={{ 
+            uri: request.item.imageUrl || FALLBACK_IMAGE 
+          }} 
+          style={styles.itemImage}
+          onError={(error) => {
+            console.warn('Image loading error for request item:', request.item.name, error);
+          }}
+          defaultSource={{ uri: FALLBACK_IMAGE }}
+        />
+        <View style={styles.itemInfo}>
+          <Text style={styles.itemName}>{request.item.name || 'Unknown Item'}</Text>
+          <Text style={styles.itemSubtext}>
+            Requested by {request.borrower.name || 'Unknown User'}
+          </Text>
+        </View>
+        <View style={styles.buttonContainer}>
+          <TouchableOpacity
+            style={[styles.actionButton, styles.declineButton]}
+            onPress={() => handleRequestUpdate(request._id, "declined")}
+          >
+            <Ionicons name="close" size={20} color="#FFF" />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.actionButton, styles.acceptButton]}
+            onPress={() => handleRequestUpdate(request._id, "accepted")}
+          >
+            <Ionicons name="checkmark" size={20} color="#FFF" />
+          </TouchableOpacity>
+        </View>
       </View>
-      <View style={styles.buttonContainer}>
-        <TouchableOpacity
-          style={[styles.actionButton, styles.declineButton]}
-          onPress={() => handleRequestUpdate(request._id, "declined")}
-        >
-          <Ionicons name="close" size={20} color="#FFF" />
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.actionButton, styles.acceptButton]}
-          onPress={() => handleRequestUpdate(request._id, "accepted")}
-        >
-          <Ionicons name="checkmark" size={20} color="#FFF" />
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
+    );
+  };
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
@@ -110,8 +153,10 @@ const ProfileScreen = () => {
           <Text style={styles.sectionTitle}>Incoming Rental Requests</Text>
           {loading ? (
             <ActivityIndicator color="#957DAD" />
-          ) : incomingRequests.length > 0 ? (
-            incomingRequests.map(renderRequestRow)
+          ) : incomingRequests.filter(request => request && request.item && request.borrower).length > 0 ? (
+            incomingRequests
+              .filter(request => request && request.item && request.borrower)
+              .map(renderRequestRow)
           ) : (
             <Text style={styles.emptyText}>
               You have no new rental requests.
@@ -123,8 +168,10 @@ const ProfileScreen = () => {
           <Text style={styles.sectionTitle}>My Listings</Text>
           {loading ? (
             <ActivityIndicator color="#957DAD" />
-          ) : myListings.length > 0 ? (
-            myListings.map((item) => renderItemRow(item))
+          ) : myListings.filter(item => item).length > 0 ? (
+            myListings
+              .filter(item => item)
+              .map((item) => renderItemRow(item))
           ) : (
             <Text style={styles.emptyText}>
               You haven't listed any items yet.
@@ -138,7 +185,7 @@ const ProfileScreen = () => {
       </ScrollView>
     </SafeAreaView>
   );
-};
+});
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#F8F9FA" },
