@@ -1,14 +1,14 @@
 import React from "react";
-import { Text } from "react-native";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
-import { SafeAreaProvider } from "react-native-safe-area-context";
+import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-context";
+import { Ionicons } from '@expo/vector-icons';
 
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import ErrorBoundary from "./components/ErrorBoundary";
 
-// Screens
+// Import all screens
 import WelcomeScreen from "./screens/WelcomeScreen";
 import LoginScreen from "./screens/LoginScreen";
 import SignUpScreen from "./screens/SignUpScreen";
@@ -17,31 +17,40 @@ import AddItemScreen from "./screens/AddItemScreen";
 import ItemDetailScreen from "./screens/ItemDetailScreen";
 import ProfileScreen from "./screens/ProfileScreen";
 
-const Stack = createNativeStackNavigator();
+const AuthStack = createNativeStackNavigator();
+const MainStack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
+
+// This stack contains the main app tabs and any screens you can navigate to from them
+function MainFlow() {
+  return (
+    <MainStack.Navigator screenOptions={{ headerShown: false }}>
+      <MainStack.Screen name="MainTabs" component={MainTabs} />
+      <MainStack.Screen name="ItemDetail" component={ItemDetailScreen} />
+    </MainStack.Navigator>
+  );
+}
 
 // Main App Tabs (for logged in users)
 function MainTabs() {
+  const insets = useSafeAreaInsets(); // Hook to get safe area dimensions
+
   return (
     <Tab.Navigator
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: '#E0BBE4',
+        tabBarActiveTintColor: '#957DAD',
         tabBarInactiveTintColor: '#7f8c8d',
+        // --- THIS IS THE FIX FOR THE TAB BAR ---
         tabBarStyle: {
           backgroundColor: '#FFFFFF',
           borderTopColor: '#E9ECEF',
-          paddingBottom: 5,
-          height: 60,
+          paddingBottom: insets.bottom, // Dynamic padding for the safe area
+          height: 60 + insets.bottom, // Total height adjusts for safe area
         },
         tabBarLabelStyle: {
-          fontSize: 10,
-          fontWeight: '600',
-          marginTop: -2,
-          marginBottom: 2,
-        },
-        tabBarIconStyle: {
-          marginTop: 5,
+          fontSize: 12,
+          fontWeight: '500',
         },
       }}
     >
@@ -50,15 +59,15 @@ function MainTabs() {
         component={HomeScreen}
         options={{
           tabBarLabel: 'Explore',
-          tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 12, fontWeight: 'bold' }}>🏠</Text>,
+          tabBarIcon: ({ color, size }) => <Ionicons name="search-outline" size={size} color={color} />,
         }}
       />
       <Tab.Screen 
         name="AddItem" 
         component={AddItemScreen}
         options={{
-          tabBarLabel: 'Add',
-          tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 12, fontWeight: 'bold' }}>➕</Text>,
+          tabBarLabel: 'Add Item',
+          tabBarIcon: ({ color, size }) => <Ionicons name="add-circle-outline" size={size} color={color} />,
         }}
       />
       <Tab.Screen 
@@ -66,37 +75,26 @@ function MainTabs() {
         component={ProfileScreen}
         options={{
           tabBarLabel: 'Profile',
-          tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 12, fontWeight: 'bold' }}>👤</Text>,
+          tabBarIcon: ({ color, size }) => <Ionicons name="person-circle-outline" size={size} color={color} />,
         }}
       />
     </Tab.Navigator>
   );
 }
 
-// Create the navigation component that uses auth state
 function AppNavigator() {
   const { user } = useAuth();
-
-  console.log("[APP] User state:", user ? "Authenticated" : "Not authenticated");
-
   return (
     <NavigationContainer>
-      <Stack.Navigator screenOptions={{ headerShown: false }}>
-        {user ? (
-          // User is logged in - show main app with tabs
-          <>
-            <Stack.Screen name="MainTabs" component={MainTabs} />
-            <Stack.Screen name="ItemDetail" component={ItemDetailScreen} />
-          </>
-        ) : (
-          // User is not logged in - show auth screens
-          <>
-            <Stack.Screen name="Welcome" component={WelcomeScreen} />
-            <Stack.Screen name="Login" component={LoginScreen} />
-            <Stack.Screen name="SignUp" component={SignUpScreen} />
-          </>
-        )}
-      </Stack.Navigator>
+      {user ? (
+        <MainFlow />
+      ) : (
+        <AuthStack.Navigator screenOptions={{ headerShown: false }}>
+          <AuthStack.Screen name="Welcome" component={WelcomeScreen} />
+          <AuthStack.Screen name="Login" component={LoginScreen} />
+          <AuthStack.Screen name="SignUp" component={SignUpScreen} />
+        </AuthStack.Navigator>
+      )}
     </NavigationContainer>
   );
 }
