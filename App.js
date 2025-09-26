@@ -1,4 +1,3 @@
-import React from "react";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
@@ -16,7 +15,8 @@ import HomeScreen from "./screens/HomeScreen";
 import AddItemScreen from "./screens/AddItemScreen";
 import ItemDetailScreen from "./screens/ItemDetailScreen";
 import ProfileScreen from "./screens/ProfileScreen";
-import AddStoryScreen from "./screens/AddStoryScreen"; // --- IMPORT NEW SCREEN ---
+import AddStoryScreen from "./screens/AddStoryScreen";
+import StoryViewerScreen from "./screens/StoryViewerScreen"; // --- IMPORT NEW SCREEN ---
 
 const AuthStack = createNativeStackNavigator();
 const MainStack = createNativeStackNavigator();
@@ -27,14 +27,16 @@ function MainFlow() {
     <MainStack.Navigator screenOptions={{ headerShown: false }}>
       <MainStack.Screen name="MainTabs" component={MainTabs} />
       <MainStack.Screen name="ItemDetail" component={ItemDetailScreen} />
-      {/* --- ADD NEW SCREEN TO THE STACK --- */}
-      {/* We make it a modal for a nice pop-up effect */}
       <MainStack.Screen name="AddStory" component={AddStoryScreen} options={{ presentation: 'modal' }} />
+      {/* --- ADD STORY VIEWER TO THE STACK --- */}
+      <MainStack.Screen name="StoryViewer" component={StoryViewerScreen} options={{ presentation: 'modal' }} />
     </MainStack.Navigator>
   );
 }
 
-// Main App Tabs (rest of the file is the same)
+// ... The rest of your App.js file (MainTabs, AppNavigator, App) remains exactly the same ...
+// I'm omitting it here for brevity, but no other changes are needed in this file.
+
 function MainTabs() {
   const insets = useSafeAreaInsets();
   return (
@@ -43,16 +45,8 @@ function MainTabs() {
         headerShown: false,
         tabBarActiveTintColor: '#957DAD',
         tabBarInactiveTintColor: '#7f8c8d',
-        tabBarStyle: {
-          backgroundColor: '#FFFFFF',
-          borderTopColor: '#E9ECEF',
-          paddingBottom: insets.bottom,
-          height: 60 + insets.bottom,
-        },
-        tabBarLabelStyle: {
-          fontSize: 12,
-          fontWeight: '500',
-        },
+        tabBarStyle: { backgroundColor: '#FFFFFF', borderTopColor: '#E9ECEF', paddingBottom: insets.bottom, height: 60 + insets.bottom },
+        tabBarLabelStyle: { fontSize: 12, fontWeight: '500' },
       }}
     >
       <Tab.Screen name="Home" component={HomeScreen} options={{ tabBarLabel: 'Explore', tabBarIcon: ({ color, size }) => <Ionicons name="search-outline" size={size} color={color} /> }}/>

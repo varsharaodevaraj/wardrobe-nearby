@@ -1,20 +1,39 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, ActivityIndicator } from 'react-native';
-import { useFocusEffect, useNavigation } from '@react-navigation/native'; // Import useNavigation
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import api from '../utils/api';
-import { useAuth } from '../context/AuthContext';
 
 const Stories = () => {
-  const [stories, setStories] = useState([]);
+  const [groupedStories, setGroupedStories] = useState([]); // State will now hold grouped stories
   const [loading, setLoading] = useState(true);
-  const { user } = useAuth();
-  const navigation = useNavigation(); // Get the navigation object
+  const navigation = useNavigation();
 
-  const fetchStories = useCallback(async () => {
+  const fetchAndGroupStories = useCallback(async () => {
     try {
-      const data = await api('/stories');
-      setStories(data);
+      setLoading(true);
+      const flatStories = await api('/stories');
+
+      // --- THIS IS THE NEW GROUPING LOGIC ---
+      // 1. Group stories by user using a reducer
+      const storyGroups = flatStories.reduce((acc, story) => {
+        const userId = story.user._id;
+        if (!acc[userId]) {
+          // If this is the first story from this user, create a new group
+          acc[userId] = {
+            user: story.user,
+            stories: [],
+          };
+        }
+        // Add the current story to this user's group
+        acc[userId].stories.push(story);
+        return acc;
+      }, {});
+
+      // 2. Convert the groups object back into an array for rendering
+      const groupedArray = Object.values(storyGroups);
+      setGroupedStories(groupedArray);
+
     } catch (error) {
       console.error("Failed to fetch stories:", error);
     } finally {
@@ -23,37 +42,45 @@ const Stories = () => {
   }, []);
 
   useFocusEffect(useCallback(() => {
-    fetchStories();
-  }, [fetchStories]));
+    fetchAndGroupStories();
+  }, [fetchAndGroupStories]));
+
+  // --- NEW: Function to open the story viewer with a user's collection of stories ---
+  const handleStoryPress = (storyGroup) => {
+    if (storyGroup.stories.length > 0) {
+      navigation.navigate('StoryViewer', { 
+        stories: storyGroup.stories, // Pass the whole array of this user's stories
+        startIndex: 0 // Start from the first story
+      });
+    }
+  };
 
   if (loading) {
-    return (
-      <View style={styles.loaderContainer}>
-        <ActivityIndicator color="#CED4DA" />
-      </View>
-    );
+    return <View style={styles.loaderContainer}><ActivityIndicator color="#CED4DA" /></View>;
   }
 
   return (
     <View style={styles.container}>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.scrollContainer}>
-        {/* --- MAKE THIS BUTTON NAVIGATE --- */}
-        <TouchableOpacity 
-          style={styles.storyCircleContainer}
-          onPress={() => navigation.navigate('AddStory')} // Navigate to the new screen
-        >
+        <TouchableOpacity style={styles.storyCircleContainer} onPress={() => navigation.navigate('AddStory')}>
           <View style={[styles.storyCircle, styles.addStoryCircle]}>
             <Ionicons name="add" size={32} color="#957DAD" />
           </View>
           <Text style={styles.storyName}>Add Story</Text>
         </TouchableOpacity>
 
-        {stories.map((story) => (
-          <TouchableOpacity key={story._id} style={styles.storyCircleContainer}>
+        {/* --- RENDER THE GROUPED STORIES --- */}
+        {groupedStories.map((group) => (
+          <TouchableOpacity 
+            key={group.user._id} 
+            style={styles.storyCircleContainer}
+            onPress={() => handleStoryPress(group)}
+          >
             <View style={styles.storyCircle}>
-              <Image source={{ uri: story.imageUrl }} style={styles.storyImage} />
+              {/* Show the image from the user's most recent story */}
+              <Image source={{ uri: group.stories[0].imageUrl }} style={styles.storyImage} />
             </View>
-            <Text style={styles.storyName}>{story.user.name}</Text>
+            <Text style={styles.storyName}>{group.user.name}</Text>
           </TouchableOpacity>
         ))}
       </ScrollView>
@@ -62,50 +89,23 @@ const Stories = () => {
 };
 
 const styles = StyleSheet.create({
-  container: {
-    paddingVertical: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E9ECEF',
-    backgroundColor: '#FFFFFF',
-  },
-  loaderContainer: {
-    height: 105,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  scrollContainer: {
-    paddingHorizontal: 15,
-    alignItems: 'center',
-  },
-  storyCircleContainer: {
-    marginRight: 15,
-    alignItems: 'center',
-  },
+  container: { paddingVertical: 15, borderBottomWidth: 1, borderBottomColor: '#E9ECEF', backgroundColor: '#FFFFFF' },
+  loaderContainer: { height: 105, justifyContent: 'center', alignItems: 'center' },
+  scrollContainer: { paddingHorizontal: 15, alignItems: 'center' },
+  storyCircleContainer: { marginRight: 15, alignItems: 'center' },
   storyCircle: {
     width: 68,
     height: 68,
     borderRadius: 34,
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 2,
-    borderColor: '#957DAD',
+    // --- UPDATED BORDER STYLE FOR "UNVIEWED" LOOK ---
+    borderWidth: 3,
+    borderColor: '#C13584', // Instagram-like pink/purple
   },
-  addStoryCircle: {
-    backgroundColor: '#F8F9FA',
-    borderColor: '#CED4DA',
-  },
-  storyImage: {
-    width: 62,
-    height: 62,
-    borderRadius: 31,
-  },
-  storyName: {
-    marginTop: 6,
-    fontSize: 12,
-    color: '#34495e',
-    maxWidth: 70,
-    textAlign: 'center',
-  },
+  addStoryCircle: { backgroundColor: '#F8F9FA', borderColor: '#CED4DA' },
+  storyImage: { width: 60, height: 60, borderRadius: 30 },
+  storyName: { marginTop: 6, fontSize: 12, color: '#34495e', maxWidth: 70, textAlign: 'center' },
 });
 
 export default Stories;
