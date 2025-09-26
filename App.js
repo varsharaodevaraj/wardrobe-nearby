@@ -1,3 +1,4 @@
+import React from "react";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
@@ -16,7 +17,7 @@ import AddItemScreen from "./screens/AddItemScreen";
 import ItemDetailScreen from "./screens/ItemDetailScreen";
 import ProfileScreen from "./screens/ProfileScreen";
 import AddStoryScreen from "./screens/AddStoryScreen";
-import StoryViewerScreen from "./screens/StoryViewerScreen"; // --- IMPORT NEW SCREEN ---
+import StoryViewerScreen from "./screens/StoryViewerScreen";
 
 const AuthStack = createNativeStackNavigator();
 const MainStack = createNativeStackNavigator();
@@ -28,48 +29,80 @@ function MainFlow() {
       <MainStack.Screen name="MainTabs" component={MainTabs} />
       <MainStack.Screen name="ItemDetail" component={ItemDetailScreen} />
       <MainStack.Screen name="AddStory" component={AddStoryScreen} options={{ presentation: 'modal' }} />
-      {/* --- ADD STORY VIEWER TO THE STACK --- */}
       <MainStack.Screen name="StoryViewer" component={StoryViewerScreen} options={{ presentation: 'modal' }} />
     </MainStack.Navigator>
   );
 }
 
-// ... The rest of your App.js file (MainTabs, AppNavigator, App) remains exactly the same ...
-// I'm omitting it here for brevity, but no other changes are needed in this file.
-
+// This is the main Tab Navigator for logged-in users.
 function MainTabs() {
-  const insets = useSafeAreaInsets();
+  const insets = useSafeAreaInsets(); // Hook to get safe area dimensions for proper padding
+
   return (
     <Tab.Navigator
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: '#957DAD',
         tabBarInactiveTintColor: '#7f8c8d',
-        tabBarStyle: { backgroundColor: '#FFFFFF', borderTopColor: '#E9ECEF', paddingBottom: insets.bottom, height: 60 + insets.bottom },
-        tabBarLabelStyle: { fontSize: 12, fontWeight: '500' },
+        tabBarStyle: {
+          backgroundColor: '#FFFFFF',
+          borderTopColor: '#E9ECEF',
+          paddingBottom: insets.bottom, // Dynamic padding for iPhone safe area
+          height: 60 + insets.bottom,   // Adjust total height accordingly
+        },
+        tabBarLabelStyle: {
+          fontSize: 12,
+          fontWeight: '500',
+        },
       }}
     >
-      <Tab.Screen name="Home" component={HomeScreen} options={{ tabBarLabel: 'Explore', tabBarIcon: ({ color, size }) => <Ionicons name="search-outline" size={size} color={color} /> }}/>
-      <Tab.Screen name="AddItem" component={AddItemScreen} options={{ tabBarLabel: 'Add Item', tabBarIcon: ({ color, size }) => <Ionicons name="add-circle-outline" size={size} color={color} /> }}/>
-      <Tab.Screen name="Profile" component={ProfileScreen} options={{ tabBarLabel: 'Profile', tabBarIcon: ({ color, size }) => <Ionicons name="person-circle-outline" size={size} color={color} /> }}/>
+      <Tab.Screen 
+        name="Explore" 
+        component={HomeScreen}
+        options={{
+          tabBarIcon: ({ color, size }) => <Ionicons name="search-outline" size={size} color={color} />,
+        }}
+      />
+      <Tab.Screen 
+        name="AddItem" 
+        component={AddItemScreen}
+        options={{
+          tabBarLabel: 'Add Item',
+          tabBarIcon: ({ color, size }) => <Ionicons name="add-circle-outline" size={size} color={color} />,
+        }}
+      />
+      <Tab.Screen 
+        name="Profile" 
+        component={ProfileScreen}
+        options={{
+          tabBarIcon: ({ color, size }) => <Ionicons name="person-circle-outline" size={size} color={color} />,
+        }}
+      />
     </Tab.Navigator>
   );
 }
 
+// This component decides whether to show the login/signup screens or the main app
 function AppNavigator() {
   const { user } = useAuth();
   return (
     <NavigationContainer>
-      {user ? <MainFlow /> : <AuthStack.Navigator screenOptions={{ headerShown: false }}>
+      {user ? (
+        // If user is logged in, show the main app flow
+        <MainFlow />
+      ) : (
+        // If no user, show the authentication flow
+        <AuthStack.Navigator screenOptions={{ headerShown: false }}>
           <AuthStack.Screen name="Welcome" component={WelcomeScreen} />
           <AuthStack.Screen name="Login" component={LoginScreen} />
           <AuthStack.Screen name="SignUp" component={SignUpScreen} />
         </AuthStack.Navigator>
-      }
+      )}
     </NavigationContainer>
   );
 }
 
+// This is the root component of your entire application
 export default function App() {
   return (
     <SafeAreaProvider>

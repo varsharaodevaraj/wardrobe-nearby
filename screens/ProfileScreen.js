@@ -19,68 +19,83 @@ const ProfileScreen = () => {
   const { user, logout } = useAuth();
   const [myListings, setMyListings] = useState([]);
   const [incomingRequests, setIncomingRequests] = useState([]);
-  const [outgoingRequests, setOutgoingRequests] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // This single function fetches all necessary data for the profile screen
   const fetchData = useCallback(async () => {
     if (!user?.id) return;
     setLoading(true);
     try {
-      // Fetch user's listings, incoming requests, and outgoing requests in parallel
-      const [listingsData, incomingData, outgoingData] = await Promise.all([
+      const [listingsData, requestsData] = await Promise.all([
         api(`/items/user/${user.id}`),
         api("/rentals/incoming"),
-        api("/rentals/outgoing"),
       ]);
       setMyListings(listingsData);
-      setIncomingRequests(incomingData);
-      setOutgoingRequests(outgoingData);
+      setIncomingRequests(requestsData);
     } catch (error) {
-      console.error("Failed to fetch profile data:", error);
       Alert.alert("Error", "Could not fetch your profile data.");
     } finally {
       setLoading(false);
     }
   }, [user?.id]);
 
-  // useFocusEffect ensures the data is fresh every time the user visits this screen
   useFocusEffect(
     useCallback(() => {
       fetchData();
     }, [fetchData])
   );
 
-  // Handles the owner's decision to accept or decline a request
+  // --- NEW: Function to handle accepting or declining a request ---
   const handleRequestUpdate = async (rentalId, status) => {
     try {
       await api(`/rentals/${rentalId}/status`, "PUT", { status });
       Alert.alert("Success", `Request has been ${status}.`);
-      fetchData(); // Refresh the screen data
+      // Refresh the data to remove the request from the list
+      fetchData();
     } catch (error) {
       Alert.alert("Error", `Failed to ${status} the request.`);
     }
   };
 
-  // A small, reusable component to display the status of a rental
-  const StatusPill = ({ status }) => {
-    const statusStyles = {
-      pending: { backgroundColor: "#F1C40F" },
-      accepted: { backgroundColor: "#2ECC71" },
-      declined: { backgroundColor: "#E74C3C" },
-      completed: { backgroundColor: "#3498DB" },
-    };
-    return (
-      <View style={[styles.statusPill, statusStyles[status]]}>
-        <Text style={styles.statusPillText}>{status}</Text>
+  const renderItemRow = (item) => (
+    <View key={item._id} style={styles.itemRow}>
+      <Image source={{ uri: item.imageUrl }} style={styles.itemImage} />
+      <View style={styles.itemInfo}>
+        <Text style={styles.itemName}>{item.name}</Text>
       </View>
-    );
-  };
+      <Ionicons name="chevron-forward" size={24} color="#CED4DA" />
+    </View>
+  );
+
+  // --- NEW: Component for rendering an incoming request with buttons ---
+  const renderRequestRow = (request) => (
+    <View key={request._id} style={styles.requestRow}>
+      <Image source={{ uri: request.item.imageUrl }} style={styles.itemImage} />
+      <View style={styles.itemInfo}>
+        <Text style={styles.itemName}>{request.item.name}</Text>
+        <Text style={styles.itemSubtext}>
+          Requested by {request.borrower.name}
+        </Text>
+      </View>
+      <View style={styles.buttonContainer}>
+        <TouchableOpacity
+          style={[styles.actionButton, styles.declineButton]}
+          onPress={() => handleRequestUpdate(request._id, "declined")}
+        >
+          <Ionicons name="close" size={20} color="#FFF" />
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.actionButton, styles.acceptButton]}
+          onPress={() => handleRequestUpdate(request._id, "accepted")}
+        >
+          <Ionicons name="checkmark" size={20} color="#FFF" />
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
       <ScrollView>
-        {/* User Info Header */}
         <View style={styles.header}>
           <View style={styles.avatar}>
             <Text style={styles.avatarText}>
@@ -91,40 +106,12 @@ const ProfileScreen = () => {
           <Text style={styles.userEmail}>{user?.email}</Text>
         </View>
 
-        {/* Section for owners to manage requests */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Incoming Rental Requests</Text>
           {loading ? (
             <ActivityIndicator color="#957DAD" />
           ) : incomingRequests.length > 0 ? (
-            incomingRequests.map((req) => (
-              <View key={req._id} style={styles.requestRow}>
-                <Image
-                  source={{ uri: req.item.imageUrl }}
-                  style={styles.itemImage}
-                />
-                <View style={styles.itemInfo}>
-                  <Text style={styles.itemName}>{req.item.name}</Text>
-                  <Text style={styles.itemSubtext}>
-                    Requested by {req.borrower.name}
-                  </Text>
-                </View>
-                <View style={styles.buttonContainer}>
-                  <TouchableOpacity
-                    style={[styles.actionButton, styles.declineButton]}
-                    onPress={() => handleRequestUpdate(req._id, "declined")}
-                  >
-                    <Ionicons name="close" size={20} color="#FFF" />
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.actionButton, styles.acceptButton]}
-                    onPress={() => handleRequestUpdate(req._id, "accepted")}
-                  >
-                    <Ionicons name="checkmark" size={20} color="#FFF" />
-                  </TouchableOpacity>
-                </View>
-              </View>
-            ))
+            incomingRequests.map(renderRequestRow)
           ) : (
             <Text style={styles.emptyText}>
               You have no new rental requests.
@@ -132,52 +119,12 @@ const ProfileScreen = () => {
           )}
         </View>
 
-        {/* Section for borrowers to see their request statuses */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>My Rental Requests</Text>
-          {loading ? (
-            <ActivityIndicator color="#957DAD" />
-          ) : outgoingRequests.length > 0 ? (
-            outgoingRequests.map((req) => (
-              <View key={req._id} style={styles.itemRow}>
-                <Image
-                  source={{ uri: req.item.imageUrl }}
-                  style={styles.itemImage}
-                />
-                <View style={styles.itemInfo}>
-                  <Text style={styles.itemName}>{req.item.name}</Text>
-                  <Text style={styles.itemSubtext}>
-                    Owner: {req.owner.name}
-                  </Text>
-                </View>
-                <StatusPill status={req.status} />
-              </View>
-            ))
-          ) : (
-            <Text style={styles.emptyText}>
-              You haven't requested any items yet.
-            </Text>
-          )}
-        </View>
-
-        {/* Section for owners to see their own listings */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>My Listings</Text>
           {loading ? (
             <ActivityIndicator color="#957DAD" />
           ) : myListings.length > 0 ? (
-            myListings.map((item) => (
-              <View key={item._id} style={styles.itemRow}>
-                <Image
-                  source={{ uri: item.imageUrl }}
-                  style={styles.itemImage}
-                />
-                <View style={styles.itemInfo}>
-                  <Text style={styles.itemName}>{item.name}</Text>
-                </View>
-                <Ionicons name="chevron-forward" size={24} color="#CED4DA" />
-              </View>
-            ))
+            myListings.map((item) => renderItemRow(item))
           ) : (
             <Text style={styles.emptyText}>
               You haven't listed any items yet.
@@ -272,13 +219,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   logoutButtonText: { color: "#FFFFFF", fontSize: 16, fontWeight: "bold" },
-  statusPill: { paddingVertical: 4, paddingHorizontal: 10, borderRadius: 12 },
-  statusPillText: {
-    color: "#FFF",
-    fontSize: 12,
-    fontWeight: "bold",
-    textTransform: "capitalize",
-  },
 });
 
 export default ProfileScreen;
