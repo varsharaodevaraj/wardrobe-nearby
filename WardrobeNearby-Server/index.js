@@ -3,28 +3,25 @@ const mongoose = require('mongoose');
 require('dotenv').config();
 
 const authRoutes = require('./routes/auth');
-const itemRoutes = require('./routes/items'); // --- IMPORT ITEM ROUTES ---
+const itemRoutes = require('./routes/items');
+const rentalRoutes = require('./routes/rentals');
+const storyRoutes = require('./routes/stories'); // --- IMPORT STORY ROUTES ---
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Database Connection
 mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log('MongoDB connected successfully.'))
   .catch(err => console.error('MongoDB connection error:', err));
 
-// Middleware
 app.use(express.json());
 
-// Routes
+// API Routes
 app.use('/api/auth', authRoutes);
-app.use('/api/items', itemRoutes); // --- USE ITEM ROUTES ---
+app.use('/api/items', itemRoutes);
+app.use('/api/rentals', rentalRoutes);
+app.use('/api/stories', storyRoutes); // --- USE STORY ROUTES ---
 
-app.get('/', (req, res) => {
-  res.send('Hello from the Wardrobe Nearby Server!');
-});
-
-// Start Server
-app.listen(PORT, () => {
-  console.log(`Server is running successfully on http://localhost:${PORT}`);
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`Server is running successfully on http://10.51.8.5:${PORT}`);
 });

@@ -16,37 +16,38 @@ import HomeScreen from "./screens/HomeScreen";
 import AddItemScreen from "./screens/AddItemScreen";
 import ItemDetailScreen from "./screens/ItemDetailScreen";
 import ProfileScreen from "./screens/ProfileScreen";
+import AddStoryScreen from "./screens/AddStoryScreen"; // --- IMPORT NEW SCREEN ---
 
 const AuthStack = createNativeStackNavigator();
 const MainStack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
-// This stack contains the main app tabs and any screens you can navigate to from them
 function MainFlow() {
   return (
     <MainStack.Navigator screenOptions={{ headerShown: false }}>
       <MainStack.Screen name="MainTabs" component={MainTabs} />
       <MainStack.Screen name="ItemDetail" component={ItemDetailScreen} />
+      {/* --- ADD NEW SCREEN TO THE STACK --- */}
+      {/* We make it a modal for a nice pop-up effect */}
+      <MainStack.Screen name="AddStory" component={AddStoryScreen} options={{ presentation: 'modal' }} />
     </MainStack.Navigator>
   );
 }
 
-// Main App Tabs (for logged in users)
+// Main App Tabs (rest of the file is the same)
 function MainTabs() {
-  const insets = useSafeAreaInsets(); // Hook to get safe area dimensions
-
+  const insets = useSafeAreaInsets();
   return (
     <Tab.Navigator
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: '#957DAD',
         tabBarInactiveTintColor: '#7f8c8d',
-        // --- THIS IS THE FIX FOR THE TAB BAR ---
         tabBarStyle: {
           backgroundColor: '#FFFFFF',
           borderTopColor: '#E9ECEF',
-          paddingBottom: insets.bottom, // Dynamic padding for the safe area
-          height: 60 + insets.bottom, // Total height adjusts for safe area
+          paddingBottom: insets.bottom,
+          height: 60 + insets.bottom,
         },
         tabBarLabelStyle: {
           fontSize: 12,
@@ -54,30 +55,9 @@ function MainTabs() {
         },
       }}
     >
-      <Tab.Screen 
-        name="Home" 
-        component={HomeScreen}
-        options={{
-          tabBarLabel: 'Explore',
-          tabBarIcon: ({ color, size }) => <Ionicons name="search-outline" size={size} color={color} />,
-        }}
-      />
-      <Tab.Screen 
-        name="AddItem" 
-        component={AddItemScreen}
-        options={{
-          tabBarLabel: 'Add Item',
-          tabBarIcon: ({ color, size }) => <Ionicons name="add-circle-outline" size={size} color={color} />,
-        }}
-      />
-      <Tab.Screen 
-        name="Profile" 
-        component={ProfileScreen}
-        options={{
-          tabBarLabel: 'Profile',
-          tabBarIcon: ({ color, size }) => <Ionicons name="person-circle-outline" size={size} color={color} />,
-        }}
-      />
+      <Tab.Screen name="Home" component={HomeScreen} options={{ tabBarLabel: 'Explore', tabBarIcon: ({ color, size }) => <Ionicons name="search-outline" size={size} color={color} /> }}/>
+      <Tab.Screen name="AddItem" component={AddItemScreen} options={{ tabBarLabel: 'Add Item', tabBarIcon: ({ color, size }) => <Ionicons name="add-circle-outline" size={size} color={color} /> }}/>
+      <Tab.Screen name="Profile" component={ProfileScreen} options={{ tabBarLabel: 'Profile', tabBarIcon: ({ color, size }) => <Ionicons name="person-circle-outline" size={size} color={color} /> }}/>
     </Tab.Navigator>
   );
 }
@@ -86,15 +66,12 @@ function AppNavigator() {
   const { user } = useAuth();
   return (
     <NavigationContainer>
-      {user ? (
-        <MainFlow />
-      ) : (
-        <AuthStack.Navigator screenOptions={{ headerShown: false }}>
+      {user ? <MainFlow /> : <AuthStack.Navigator screenOptions={{ headerShown: false }}>
           <AuthStack.Screen name="Welcome" component={WelcomeScreen} />
           <AuthStack.Screen name="Login" component={LoginScreen} />
           <AuthStack.Screen name="SignUp" component={SignUpScreen} />
         </AuthStack.Navigator>
-      )}
+      }
     </NavigationContainer>
   );
 }

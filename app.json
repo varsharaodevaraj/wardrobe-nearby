@@ -41,7 +41,8 @@
           "photosPermission": "The app accesses your photos to let you select images for your item listings.",
           "cameraPermission": "The app accesses your camera to let you take photos of items for listings."
         }
-      ]
+      ],
+      "expo-secure-store"
     ]
   }
 }

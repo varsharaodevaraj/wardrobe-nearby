@@ -1,59 +1,76 @@
-import React, { createContext, useState, useContext } from 'react';
-
-const API_URL = 'http://10.51.8.5:3000/api';
+import React, { createContext, useState, useContext, useEffect } from 'react';
+import * as SecureStore from 'expo-secure-store';
+import api from '../utils/api'; // Import our new API client
 
 const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true); // To show a loading screen on app startup
 
-  console.log("[AUTH_CONTEXT] Current user state:", user);
+  // This effect runs once when the app starts
+  useEffect(() => {
+    const loadUser = async () => {
+      try {
+        const token = await SecureStore.getItemAsync('token');
+        const userJson = await SecureStore.getItemAsync('user');
+
+        if (token && userJson) {
+          console.log("[AUTH] Token and user found in storage, setting user state.");
+          setUser(JSON.parse(userJson));
+        } else {
+          console.log("[AUTH] No token/user found in storage.");
+        }
+      } catch (error) {
+        console.error("[AUTH] Error loading user from storage:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadUser();
+  }, []);
 
   const login = async (email, password) => {
     try {
-      console.log(`[AUTH] Attempting to login to: ${API_URL}/auth/login`);
-      const response = await fetch(`${API_URL}/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.message || 'Login failed');
-      console.log("[AUTH] Login successful!");
-      setUser({ id: data.user.id, name: data.user.name, email });
+      const data = await api('/auth/login', 'POST', { email, password });
+      // Now we get user data AND a token from the server
+      const loggedInUser = { id: data.user.id, name: data.user.name, email };
+
+      // Save the token and user data to secure storage
+      await SecureStore.setItemAsync('token', data.token);
+      await SecureStore.setItemAsync('user', JSON.stringify(loggedInUser));
+
+      setUser(loggedInUser);
     } catch (error) {
       console.error("[AUTH] Login Error:", error);
-      if (error.message === 'Network request failed') {
-        throw new Error('Cannot connect to server. Please check your internet connection and make sure the server is running.');
-      }
       throw error;
     }
   };
   
   const signup = async (name, email, password) => {
     try {
-      console.log(`[AUTH] Attempting to signup to: ${API_URL}/auth/signup`);
-      const response = await fetch(`${API_URL}/auth/signup`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, password }),
-      });
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.message || 'Sign up failed');
-      }
-      console.log("[AUTH] Signup successful, now logging in...");
+      await api('/auth/signup', 'POST', { name, email, password });
+      // After signup, log the user in to get a token
       await login(email, password);
     } catch (error) {
       console.error("[AUTH] Signup Error:", error);
-      if (error.message === 'Network request failed') {
-        throw new Error('Cannot connect to server. Please check your internet connection and make sure the server is running.');
-      }
       throw error;
     }
   };
 
-  const logout = () => { setUser(null); };
+  const logout = async () => {
+    // Delete the token and user data from storage
+    await SecureStore.deleteItemAsync('token');
+    await SecureStore.deleteItemAsync('user');
+    setUser(null);
+  };
+
+  // If the app is still checking for a token, we can show a loading screen
+  if (loading) {
+    // You can replace this with a proper splash screen component later
+    return null; 
+  }
 
   return (
     <AuthContext.Provider value={{ user, login, signup, logout }}>

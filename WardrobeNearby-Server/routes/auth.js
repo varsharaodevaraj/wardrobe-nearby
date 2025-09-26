@@ -1,10 +1,10 @@
 const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken'); // --- IMPORT JWT ---
 const User = require('../models/User');
 
 router.post('/signup', async (req, res) => {
-  // This route is likely fine, but we'll keep it consistent.
   const { name, email, password } = req.body;
   try {
     let user = await User.findOne({ email });
@@ -15,43 +15,41 @@ router.post('/signup', async (req, res) => {
     await user.save();
     res.status(201).json({ message: 'User registered successfully!' });
   } catch (error) {
-    console.error('[SERVER SIGNUP ERROR]', error);
     res.status(500).send('Server error');
   }
 });
 
 router.post('/login', async (req, res) => {
   const { email, password } = req.body;
-  
-  // --- DETAILED LOGGING ADDED ---
-  console.log(`[SERVER] Login request received for: ${email}`);
-  
   try {
-    console.log('[SERVER] Step 1: Searching for user in the database...');
     const user = await User.findOne({ email });
-    
-    if (!user) {
-      console.log('[SERVER] Result: User not found.');
-      // We still send a generic message for security
-      return res.status(400).json({ message: 'Invalid credentials.' });
-    }
-    console.log(`[SERVER] Result: User found! ID: ${user.id}`);
-
-    console.log('[SERVER] Step 2: Comparing passwords...');
+    if (!user) return res.status(400).json({ message: 'Invalid credentials.' });
     const isMatch = await bcrypt.compare(password, user.password);
-    
-    if (!isMatch) {
-      console.log('[SERVER] Result: Passwords do not match.');
-      return res.status(400).json({ message: 'Invalid credentials.' });
-    }
-    console.log('[SERVER] Result: Passwords match!');
+    if (!isMatch) return res.status(400).json({ message: 'Invalid credentials.' });
 
-    console.log('[SERVER] Step 3: Sending success response to the app.');
-    res.status(200).json({ message: 'Login successful!', user: { id: user.id, name: user.name } });
+    // --- CREATE THE JWT ---
+    const payload = {
+      user: {
+        id: user.id, // We put the user's ID inside the token
+      },
+    };
 
+    jwt.sign(
+      payload,
+      process.env.JWT_SECRET, // The secret key from our .env file
+      { expiresIn: '8h' }, // The token will be valid for 8 hours
+      (err, token) => {
+        if (err) throw err;
+        // --- SEND THE TOKEN BACK TO THE APP ---
+        res.status(200).json({ 
+          message: 'Login successful!', 
+          token: token, // The VIP Pass
+          user: { id: user.id, name: user.name } 
+        });
+      }
+    );
   } catch (error) {
-    console.error('[SERVER LOGIN ERROR]', error);
-    res.status(500).send('Server error during login process');
+    res.status(500).send('Server error');
   }
 });
 

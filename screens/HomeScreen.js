@@ -1,24 +1,23 @@
-import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
 import ItemCard from '../components/ItemCard';
-import { useFocusEffect } from '@react-navigation/native'; // --- IMPORT THE HOOK ---
-
-// --- computer'S IP ADDRESS ---
-const API_URL = 'http://10.51.8.5:3000/api';
+import Stories from '../components/Stories'; // --- IMPORT THE NEW STORIES COMPONENT ---
+import { useFocusEffect } from '@react-navigation/native';
+import api from '../utils/api';
 
 const HomeScreen = () => {
   const { logout } = useAuth();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false); // For pull-to-refresh
+  const [refreshing, setRefreshing] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
-  // We wrap fetchItems in useCallback to prevent it from being recreated on every render
-  const fetchItems = useCallback(async () => {
+  const fetchItems = useCallback(async (query) => {
     try {
-      const response = await fetch(`${API_URL}/items`);
-      const data = await response.json();
+      const data = await api(`/items?search=${query}`);
       setItems(data);
     } catch (error) {
       console.error("Failed to fetch items:", error);
@@ -28,27 +27,50 @@ const HomeScreen = () => {
     }
   }, []);
 
-  // useFocusEffect runs the fetchItems function every time this screen comes into focus
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setLoading(true);
+      fetchItems(searchQuery);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery, fetchItems]);
+
   useFocusEffect(
     useCallback(() => {
-      setLoading(true); // Show loader when screen is focused
-      fetchItems();
+      setSearchQuery('');
+      setLoading(true);
+      fetchItems('');
     }, [fetchItems])
   );
 
-  // This function is for the "pull-to-refresh" gesture
   const onRefresh = () => {
     setRefreshing(true);
-    fetchItems();
+    fetchItems(searchQuery);
   };
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Explore Nearby</Text>
-        <TouchableOpacity onPress={logout} style={styles.logoutButton}>
-          <Text style={styles.logoutButtonText}>Log Out</Text>
+        <Text style={styles.headerTitle}>Explore</Text>
+        <TouchableOpacity onPress={logout}>
+          <Ionicons name="log-out-outline" size={28} color="#E74C3C" />
         </TouchableOpacity>
+      </View>
+      
+      {/* --- DISPLAY THE STORIES COMPONENT HERE --- */}
+      <Stories />
+
+      <View style={styles.searchSection}>
+        <View style={styles.searchContainer}>
+          <Ionicons name="search" size={20} color="#7f8c8d" style={styles.searchIcon} />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search for dresses, jewelry..."
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            clearButtonMode="while-editing"
+          />
+        </View>
       </View>
 
       {loading && !refreshing ? (
@@ -59,8 +81,7 @@ const HomeScreen = () => {
           renderItem={({ item }) => <ItemCard item={item} />}
           keyExtractor={(item) => item._id}
           contentContainerStyle={styles.listContent}
-          ListEmptyComponent={<Text style={styles.emptyText}>No items listed yet. Be the first!</Text>}
-          // Add the RefreshControl component for pull-to-refresh
+          ListEmptyComponent={<Text style={styles.emptyText}>No items found. Try a different search!</Text>}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={["#957DAD"]} />
           }
@@ -80,28 +101,43 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingVertical: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E9ECEF',
+    paddingTop: 15,
+    paddingBottom: 10,
     backgroundColor: '#FFFFFF',
   },
   headerTitle: {
-    fontSize: 24,
+    fontSize: 28,
     fontWeight: 'bold',
     color: '#2c3e50',
   },
-  logoutButton: {
-    backgroundColor: '#E74C3C',
-    paddingVertical: 8,
-    paddingHorizontal: 15,
-    borderRadius: 20,
+  searchSection: {
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 20,
+    paddingVertical: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E9ECEF',
   },
-  logoutButtonText: {
-    color: '#FFF',
-    fontWeight: 'bold',
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ecf0f1',
+    borderRadius: 20,
+    height: 40,
+  },
+  searchInput: {
+    flex: 1,
+    height: '100%',
+    paddingRight: 15,
+    fontSize: 16,
+    color: '#2c3e50',
+  },
+  searchIcon: {
+    marginLeft: 15,
+    marginRight: 10,
   },
   listContent: {
-    padding: 20,
+    paddingHorizontal: 20,
+    paddingTop: 20,
   },
   loader: {
     flex: 1,
