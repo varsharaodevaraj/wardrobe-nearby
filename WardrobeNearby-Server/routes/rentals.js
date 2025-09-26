@@ -21,7 +21,7 @@ router.post('/request', auth, async (req, res) => {
   }
 });
 
-// GET /api/rentals/incoming - Get all incoming rental requests for the owner
+// GET /api/rentals/incoming - Get pending requests for an owner
 router.get('/incoming', auth, async (req, res) => {
     try {
         const requests = await Rental.find({ owner: req.user.id, status: 'pending' })
@@ -33,7 +33,7 @@ router.get('/incoming', auth, async (req, res) => {
     }
 });
 
-// PUT /api/rentals/:id/status - Update a rental request status
+// PUT /api/rentals/:id/status - Update a request status
 router.put('/:id/status', auth, async (req, res) => {
     try {
         const { status } = req.body;
@@ -53,20 +53,32 @@ router.put('/:id/status', auth, async (req, res) => {
     }
 });
 
-// --- THIS IS THE NEW ENDPOINT ---
-// ROUTE:    GET /api/rentals/outgoing
-// DESC:     Get all outgoing rental requests made by the borrower
-// ACCESS:   Private
+// GET /api/rentals/outgoing - Get all outgoing requests for a borrower
 router.get('/outgoing', auth, async (req, res) => {
     try {
-        // Find all rentals where the borrower is the currently logged-in user
         const requests = await Rental.find({ borrower: req.user.id })
-            .populate('item', ['name', 'imageUrl']) // Get item details
-            .populate('owner', ['name']);      // Get owner's name
-        
+            .populate('item', ['name', 'imageUrl'])
+            .populate('owner', ['name']);
         res.json(requests);
     } catch (error) {
-        console.error('Error fetching outgoing requests:', error);
+        res.status(500).send('Server Error');
+    }
+});
+
+// --- THIS IS THE NEW ENDPOINT ---
+// ROUTE:    GET /api/rentals/my-rentals
+// DESC:     Get all ACCEPTED rentals for the borrower
+// ACCESS:   Private
+router.get('/my-rentals', auth, async (req, res) => {
+    try {
+        // Find all rentals where the borrower is the logged-in user AND status is 'accepted'
+        const rentals = await Rental.find({ borrower: req.user.id, status: 'accepted' })
+            .populate('item', ['name', 'imageUrl', 'price_per_day']) // Get item details
+            .populate('owner', ['name']);      // Get owner's name
+        
+        res.json(rentals);
+    } catch (error) {
+        console.error('Error fetching my rentals:', error);
         res.status(500).send('Server Error');
     }
 });
