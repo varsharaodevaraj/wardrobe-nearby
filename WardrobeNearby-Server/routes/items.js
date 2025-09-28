@@ -1,68 +1,102 @@
 const express = require('express');
 const router = express.Router();
-const Item = require('../models/Item');
 const auth = require('../middleware/auth');
+const Item = require('../models/Item');
 
-// ROUTE:  GET /api/items
-// DESC:   Get all items, with optional search functionality
-// ACCESS: Public
+// @route   GET /api/items
+// @desc    Get all items, with search
 router.get('/', async (req, res) => {
   try {
-    // --- THIS IS THE NEW SEARCH LOGIC ---
-    const { search } = req.query; // Check for a 'search' query parameter in the URL
-    
-    let query = {}; // Start with an empty query object
-
+    const { search } = req.query;
+    let query = {};
     if (search) {
-      // If a search term is provided, build a query to search the 'name' and 'description' fields.
-      // The '$regex' operator provides powerful text search capabilities.
-      // The '$options: 'i'' makes the search case-insensitive.
-      query = {
-        $or: [
+      query = { $or: [
           { name: { $regex: search, $options: 'i' } },
           { description: { $regex: search, $options: 'i' } },
           { category: { $regex: search, $options: 'i' } },
-        ],
-      };
+        ]};
     }
-
-    // Pass the query object to the find() method. If no search term, it's empty and finds all items.
-    const items = await Item.find(query).sort({ date: -1 });
+    const items = await Item.find(query).populate('user', 'name').sort({ date: -1 });
     res.json(items);
-    
   } catch (error) {
-    console.error('Error fetching items:', error.message);
+    console.error('Error fetching items:', error);
     res.status(500).send('Server Error');
   }
 });
 
-// ROUTE:  POST /api/items
-// DESC:   Add a new item to the database
-// ACCESS: Private (Requires token)
+// @route   GET /api/items/:id
+// @desc    Get single item by ID
+router.get('/:id', async (req, res) => {
+  try {
+    const item = await Item.findById(req.params.id).populate('user', 'name');
+    if (!item) return res.status(404).json({ message: 'Item not found' });
+    res.json(item);
+  } catch (error) {
+    console.error('Error fetching item:', error);
+    res.status(500).send('Server Error');
+  }
+});
+
+// @route   POST /api/items
+// @desc    Add new item
 router.post('/', auth, async (req, res) => {
-  const { name, category, description, price_per_day, imageUrl } = req.body;
   try {
     const newItem = new Item({
-      name, category, description, price_per_day, imageUrl,
-      user: req.user.id, // Get user ID from the secure token
+      ...req.body,
+      user: req.user.id,
     });
     const item = await newItem.save();
-    res.status(201).json(item);
+    res.json(item);
   } catch (error) {
-    console.error('Error creating item:', error.message);
+    console.error('Error adding item:', error);
     res.status(500).send('Server Error');
   }
 });
 
-// ROUTE:  GET /api/items/user/:userId
-// DESC:   Get all items listed by a specific user
-// ACCESS: Private (Requires token)
+// @route   GET /api/items/user/:userId
+// @desc    Get items by user ID
 router.get('/user/:userId', auth, async (req, res) => {
   try {
-    const items = await Item.find({ user: req.params.userId }).sort({ date: -1 });
+    const items = await Item.find({ user: req.params.userId });
     res.json(items);
   } catch (error) {
-    console.error('Error fetching user items:', error.message);
+    console.error('Error fetching user items:', error);
+    res.status(500).send('Server Error');
+  }
+});
+
+// @route   DELETE /api/items/:id
+// @desc    Delete an item
+router.delete('/:id', auth, async (req, res) => {
+  try {
+      const item = await Item.findById(req.params.id);
+      if (!item) return res.status(404).json({ message: 'Item not found' });
+      if (item.user.toString() !== req.user.id) {
+          return res.status(401).json({ message: 'User not authorized' });
+      }
+      await Item.findByIdAndDelete(req.params.id);
+      res.json({ message: 'Item removed successfully' });
+  } catch (error) {
+      console.error('Error deleting item:', error);
+      res.status(500).send('Server Error');
+  }
+});
+
+// @route   PUT /api/items/:id
+// @desc    Update an item
+router.put('/:id', auth, async (req, res) => {
+  try {
+    let item = await Item.findById(req.params.id);
+    if (!item) return res.status(404).json({ message: 'Item not found' });
+
+    if (item.user.toString() !== req.user.id) {
+      return res.status(401).json({ message: 'Not authorized' });
+    }
+
+    item = await Item.findByIdAndUpdate(req.params.id, { $set: req.body }, { new: true });
+    res.json(item);
+  } catch (error) {
+    console.error('Error updating item:', error);
     res.status(500).send('Server Error');
   }
 });

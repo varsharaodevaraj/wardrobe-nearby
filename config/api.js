@@ -3,14 +3,12 @@ import Constants from 'expo-constants';
 // Get the development server URL from Expo
 const getApiUrl = () => {
   if (__DEV__) {
-    // In development, use Expo's debugger host or localhost
     const debuggerHost = Constants.expoConfig?.hostUri
       ? Constants.expoConfig.hostUri.split(':').shift()
       : 'localhost';
-    
-    return `http://${debuggerHost}:3000/api`;
+
+    return `http://${debuggerHost}:3000/api`; // ✅ always includes /api
   } else {
-    // In production, use your production API URL
     return 'https://your-production-api.com/api';
   }
 };

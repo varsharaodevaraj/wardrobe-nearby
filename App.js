@@ -1,59 +1,45 @@
-import React, { Suspense } from "react";
+import React from "react";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from '@expo/vector-icons';
-import { View, ActivityIndicator, StyleSheet } from 'react-native';
 
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import ErrorBoundary from "./components/ErrorBoundary";
 
-// Lazy load screens for better performance
-const WelcomeScreen = React.lazy(() => import("./screens/WelcomeScreen"));
-const LoginScreen = React.lazy(() => import("./screens/LoginScreen"));
-const SignUpScreen = React.lazy(() => import("./screens/SignUpScreen"));
-const HomeScreen = React.lazy(() => import("./screens/HomeScreen"));
-const AddItemScreen = React.lazy(() => import("./screens/AddItemScreen"));
-const ItemDetailScreen = React.lazy(() => import("./screens/ItemDetailScreen"));
-const ProfileScreen = React.lazy(() => import("./screens/ProfileScreen"));
-const AddStoryScreen = React.lazy(() => import("./screens/AddStoryScreen"));
-const StoryViewerScreen = React.lazy(() => import("./screens/StoryViewerScreen"));
-
-// Loading component
-const LoadingScreen = () => (
-  <View style={loadingStyles.container}>
-    <ActivityIndicator size="large" color="#957DAD" />
-  </View>
-);
-
-const loadingStyles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#F8F9FA',
-  },
-});
+// Import all screens
+import WelcomeScreen from "./screens/WelcomeScreen";
+import LoginScreen from "./screens/LoginScreen";
+import SignUpScreen from "./screens/SignUpScreen";
+import HomeScreen from "./screens/HomeScreen";
+import AddItemScreen from "./screens/AddItemScreen";
+import ItemDetailScreen from "./screens/ItemDetailScreen";
+import ProfileScreen from "./screens/ProfileScreen";
+import AddStoryScreen from "./screens/AddStoryScreen";
+import StoryViewerScreen from "./screens/StoryViewerScreen";
+import EditItemScreen from "./screens/EditItemScreen";
 
 const AuthStack = createNativeStackNavigator();
 const MainStack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
+// This stack contains the main app tabs and all screens accessible to a logged-in user
 function MainFlow() {
   return (
     <MainStack.Navigator screenOptions={{ headerShown: false }}>
       <MainStack.Screen name="MainTabs" component={MainTabs} />
       <MainStack.Screen name="ItemDetail" component={ItemDetailScreen} />
+      <MainStack.Screen name="EditItem" component={EditItemScreen} />
       <MainStack.Screen name="AddStory" component={AddStoryScreen} options={{ presentation: 'modal' }} />
       <MainStack.Screen name="StoryViewer" component={StoryViewerScreen} options={{ presentation: 'modal' }} />
     </MainStack.Navigator>
   );
 }
 
-// This is the main Tab Navigator for logged-in users.
+// This is the main Tab Navigator for logged-in users
 function MainTabs() {
-  const insets = useSafeAreaInsets(); // Hook to get safe area dimensions for proper padding
+  const insets = useSafeAreaInsets();
 
   return (
     <Tab.Navigator
@@ -64,8 +50,8 @@ function MainTabs() {
         tabBarStyle: {
           backgroundColor: '#FFFFFF',
           borderTopColor: '#E9ECEF',
-          paddingBottom: insets.bottom, // Dynamic padding for iPhone safe area
-          height: 60 + insets.bottom,   // Adjust total height accordingly
+          paddingBottom: insets.bottom,
+          height: 60 + insets.bottom,
         },
         tabBarLabelStyle: {
           fontSize: 12,
@@ -99,24 +85,20 @@ function MainTabs() {
   );
 }
 
-// This component decides whether to show the login/signup screens or the main app
+// This component decides whether to show the auth flow or the main app
 function AppNavigator() {
   const { user } = useAuth();
   return (
     <NavigationContainer>
-      <Suspense fallback={<LoadingScreen />}>
-        {user ? (
-          // If user is logged in, show the main app flow
-          <MainFlow />
-        ) : (
-          // If no user, show the authentication flow
-          <AuthStack.Navigator screenOptions={{ headerShown: false }}>
-            <AuthStack.Screen name="Welcome" component={WelcomeScreen} />
-            <AuthStack.Screen name="Login" component={LoginScreen} />
-            <AuthStack.Screen name="SignUp" component={SignUpScreen} />
-          </AuthStack.Navigator>
-        )}
-      </Suspense>
+      {user ? (
+        <MainFlow />
+      ) : (
+        <AuthStack.Navigator screenOptions={{ headerShown: false }}>
+          <AuthStack.Screen name="Welcome" component={WelcomeScreen} />
+          <AuthStack.Screen name="Login" component={LoginScreen} />
+          <AuthStack.Screen name="SignUp" component={SignUpScreen} />
+        </AuthStack.Navigator>
+      )}
     </NavigationContainer>
   );
 }
