@@ -8,37 +8,50 @@ import { Image } from 'expo-image'; // Using expo-image for better performance
 import { Ionicons } from '@expo/vector-icons';
 import api from '../utils/api';
 import { useAuth } from '../context/AuthContext';
+import { useFollow } from '../context/FollowContext';
 
 const { width } = Dimensions.get('window');
 
 const ItemDetailScreenEnhanced = ({ route, navigation }) => {
   const { item } = route.params;
   const { user } = useAuth();
+  const { isFollowing, toggleFollow, checkFollowStatus, loading: followLoading } = useFollow();
   const [loading, setLoading] = useState(false);
   const [hasRequestedBefore, setHasRequestedBefore] = useState(false);
   const [checkingRequest, setCheckingRequest] = useState(true);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [chatLoading, setChatLoading] = useState(false);
   
   // Handle both old and new image formats
   const images = item.images && item.images.length > 0 ? item.images : [item.imageUrl];
   const featuredIndex = item.featuredImageIndex || 0;
   
-  const isOwner = user?.id === item.user;
+  // Check if the logged-in user is the owner of the item
+  // Handle both cases: item.user as object {_id, name} or as string ID
+  const itemOwnerId = typeof item.user === 'object' ? item.user._id : item.user;
+  const isOwner = user?.id === itemOwnerId;
 
   useEffect(() => {
-    const checkExistingRequest = async () => {
+    const initializeScreen = async () => {
       if (isOwner) {
         setCheckingRequest(false);
         return;
       }
+      
       try {
+        // Check existing rental request
         const requests = await api('/rentals/outgoing?status=pending');
         const hasRequested = requests.some(
           request => request.item._id === item._id
         );
         setHasRequestedBefore(hasRequested);
+
+        // Check follow status using global context
+        if (itemOwnerId) {
+          await checkFollowStatus(itemOwnerId);
+        }
       } catch (error) {
-        console.error('[ITEM_DETAIL] Error checking requests:', error);
+        console.error('[ITEM_DETAIL_ENHANCED] Error initializing screen:', error);
         setHasRequestedBefore(false);
       } finally {
         setCheckingRequest(false);
@@ -46,7 +59,7 @@ const ItemDetailScreenEnhanced = ({ route, navigation }) => {
     };
 
     if (!isOwner) {
-      checkExistingRequest();
+      initializeScreen();
     } else {
       setCheckingRequest(false);
     }
@@ -92,6 +105,45 @@ const ItemDetailScreenEnhanced = ({ route, navigation }) => {
       }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleFollowToggle = async () => {
+    // Additional safety check - should never happen since UI hides button for owners
+    if (isOwner) {
+      Alert.alert("Info", "This is your own item. You cannot follow yourself.");
+      return;
+    }
+    
+    const ownerName = typeof item.user === 'object' ? item.user.name : 'User';
+    await toggleFollow(itemOwnerId, ownerName);
+  };
+
+  const handleStartChat = async () => {
+    // Additional safety check - should never happen since UI hides button for owners
+    if (isOwner) {
+      Alert.alert("Info", "This is your own item. You cannot chat with yourself.");
+      return;
+    }
+    
+    setChatLoading(true);
+    try {
+      const ownerName = typeof item.user === 'object' ? item.user.name : 'Owner';
+      
+      console.log('[ITEM_DETAIL_ENHANCED] Starting chat with:', { itemOwnerId, ownerName, itemId: item._id });
+      
+      // Navigate to chat with the owner
+      navigation.navigate('Chat', {
+        participantId: itemOwnerId,
+        itemId: item._id,
+        participantName: ownerName,
+        itemName: item.name
+      });
+    } catch (error) {
+      console.error('[ITEM_DETAIL_ENHANCED] Chat error:', error);
+      Alert.alert("Error", "Could not start chat. Please try again.");
+    } finally {
+      setChatLoading(false);
     }
   };
 
@@ -189,10 +241,43 @@ const ItemDetailScreenEnhanced = ({ route, navigation }) => {
             </View>
             
             {!isOwner && (
-              <TouchableOpacity style={styles.followButton}>
-                <Ionicons name="person-add-outline" size={16} color="#957DAD" />
-                <Text style={styles.followButtonText}>Follow</Text>
-              </TouchableOpacity>
+              <View style={styles.ownerActions}>
+                <TouchableOpacity 
+                  style={[styles.actionButton, styles.followButton]}
+                  onPress={handleFollowToggle}
+                  disabled={followLoading}
+                >
+                  {followLoading ? (
+                    <ActivityIndicator size="small" color="#957DAD" />
+                  ) : (
+                    <>
+                      <Ionicons 
+                        name={isFollowing(itemOwnerId) ? 'person-remove-outline' : 'person-add-outline'} 
+                        size={16} 
+                        color="#957DAD" 
+                      />
+                      <Text style={styles.followButtonText}>
+                        {isFollowing(itemOwnerId) ? 'Unfollow' : 'Follow'}
+                      </Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+
+                <TouchableOpacity 
+                  style={[styles.actionButton, styles.chatButton]}
+                  onPress={handleStartChat}
+                  disabled={chatLoading}
+                >
+                  {chatLoading ? (
+                    <ActivityIndicator size="small" color="#957DAD" />
+                  ) : (
+                    <>
+                      <Ionicons name="chatbubble-outline" size={16} color="#957DAD" />
+                      <Text style={styles.chatButtonText}>Chat</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              </View>
             )}
           </View>
 
@@ -361,16 +446,29 @@ const styles = StyleSheet.create({
   ownerInitial: { color: '#4A235A', fontSize: 18, fontWeight: 'bold' },
   ownerName: { fontSize: 16, fontWeight: '600', color: '#2c3e50' },
   ownerLabel: { fontSize: 12, color: '#7f8c8d', marginTop: 2 },
-  followButton: {
+  ownerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  actionButton: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderWidth: 1,
-    borderColor: '#E0BBE4',
     borderRadius: 15,
+    minWidth: 80,
+    justifyContent: 'center',
+  },
+  followButton: {
+    borderColor: '#E0BBE4',
   },
   followButtonText: { marginLeft: 4, fontSize: 14, color: '#957DAD', fontWeight: '500' },
+  chatButton: {
+    borderColor: '#E0BBE4',
+  },
+  chatButtonText: { marginLeft: 4, fontSize: 14, color: '#957DAD', fontWeight: '500' },
   name: { fontSize: 28, fontWeight: 'bold', color: '#2c3e50', marginBottom: 8 },
   category: { fontSize: 16, color: '#7f8c8d', marginBottom: 16 },
   description: { fontSize: 16, color: '#34495e', lineHeight: 24, marginBottom: 20 },
@@ -390,17 +488,6 @@ const styles = StyleSheet.create({
   price: { fontSize: 24, fontWeight: 'bold', color: '#2c3e50' },
   priceLabel: { fontSize: 14, color: '#7f8c8d', marginTop: 2 },
   actionButtons: { flexDirection: 'row', alignItems: 'center' },
-  chatButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderWidth: 1,
-    borderColor: '#E0BBE4',
-    borderRadius: 25,
-    marginRight: 12,
-  },
-  chatButtonText: { marginLeft: 6, fontSize: 14, color: '#957DAD', fontWeight: '500' },
   rentButton: { 
     backgroundColor: '#957DAD', 
     paddingVertical: 12, 

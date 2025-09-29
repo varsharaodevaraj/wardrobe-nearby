@@ -18,6 +18,44 @@ import api from "../utils/api";
 
 // --- Internal components for each section to keep the code clean ---
 
+const FollowersSection = ({ followers, following }) => (
+  <View style={styles.section}>
+    <Text style={styles.sectionTitle}>Social Connections</Text>
+    <View style={styles.socialStats}>
+      <View style={styles.socialStatItem}>
+        <Text style={styles.socialStatNumber}>{followers.length}</Text>
+        <Text style={styles.socialStatLabel}>Followers</Text>
+      </View>
+      <View style={styles.socialStatDivider} />
+      <View style={styles.socialStatItem}>
+        <Text style={styles.socialStatNumber}>{following.length}</Text>
+        <Text style={styles.socialStatLabel}>Following</Text>
+      </View>
+    </View>
+    
+    {followers.length > 0 && (
+      <View style={styles.followersContainer}>
+        <Text style={styles.followersTitle}>Your Followers:</Text>
+        {followers.slice(0, 5).map((follower) => (
+          <View key={follower._id} style={styles.followerItem}>
+            <View style={styles.followerAvatar}>
+              <Text style={styles.followerInitial}>
+                {follower.name ? follower.name.charAt(0).toUpperCase() : 'U'}
+              </Text>
+            </View>
+            <Text style={styles.followerName}>{follower.name || 'Unknown User'}</Text>
+          </View>
+        ))}
+        {followers.length > 5 && (
+          <Text style={styles.moreFollowers}>
+            +{followers.length - 5} more followers
+          </Text>
+        )}
+      </View>
+    )}
+  </View>
+);
+
 const MyRentalsSection = ({ rentals, onContact }) => (
   <View style={styles.section}>
     <Text style={styles.sectionTitle}>My Rentals</Text>
@@ -183,6 +221,8 @@ const ProfileScreen = () => {
     incoming: [],
     outgoing: [],
     rentals: [],
+    followers: [],
+    following: [],
   });
   const [loading, setLoading] = useState(true);
 
@@ -190,18 +230,21 @@ const ProfileScreen = () => {
     if (!user?.id) return;
     setLoading(true);
     try {
-      const [listingsData, incomingData, outgoingData, rentalsData] =
+      const [listingsData, incomingData, outgoingData, rentalsData, userProfileData] =
         await Promise.all([
           api(`/items/user/${user.id}`),
           api("/rentals/incoming"),
           api("/rentals/outgoing"),
           api("/rentals/my-rentals"),
+          api(`/users/profile/${user.id}`),
         ]);
       setData({
         listings: listingsData,
         incoming: incomingData,
         outgoing: outgoingData,
         rentals: rentalsData,
+        followers: userProfileData.followers || [],
+        following: userProfileData.following || [],
       });
     } catch (error) {
       console.error("Profile data fetch error:", error);
@@ -220,6 +263,8 @@ const ProfileScreen = () => {
         incoming: [],
         outgoing: [],
         rentals: [],
+        followers: [],
+        following: [],
       });
     } finally {
       setLoading(false);
@@ -323,6 +368,10 @@ const ProfileScreen = () => {
           />
         ) : (
           <>
+            <FollowersSection
+              followers={data.followers}
+              following={data.following}
+            />
             <MyRentalsSection
               rentals={data.rentals}
               onContact={handleContactOwner}
@@ -465,6 +514,78 @@ const styles = StyleSheet.create({
     backgroundColor: "#ecf0f1",
   },
   revokeButtonText: { color: "#E74C3C", fontWeight: "600", fontSize: 12 },
+  socialStats: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 15,
+    paddingVertical: 15,
+    backgroundColor: '#F8F9FA',
+    borderRadius: 12,
+  },
+  socialStatItem: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  socialStatNumber: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#2c3e50',
+  },
+  socialStatLabel: {
+    fontSize: 14,
+    color: '#7f8c8d',
+    marginTop: 4,
+  },
+  socialStatDivider: {
+    width: 1,
+    height: 40,
+    backgroundColor: '#E0E0E0',
+  },
+  followersContainer: {
+    marginTop: 10,
+  },
+  followersTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#2c3e50',
+    marginBottom: 10,
+  },
+  followerItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
+    marginBottom: 6,
+  },
+  followerAvatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#E0BBE4',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  followerInitial: {
+    color: '#4A235A',
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  followerName: {
+    fontSize: 14,
+    color: '#2c3e50',
+    fontWeight: '500',
+  },
+  moreFollowers: {
+    fontSize: 12,
+    color: '#7f8c8d',
+    fontStyle: 'italic',
+    textAlign: 'center',
+    marginTop: 8,
+  },
 
 });
 

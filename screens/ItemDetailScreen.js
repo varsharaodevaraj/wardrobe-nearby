@@ -17,7 +17,17 @@ const ItemDetailScreen = ({ route, navigation }) => {
   const [chatLoading, setChatLoading] = useState(false);
 
   // Check if the logged-in user is the owner of the item
-  const isOwner = user?.id === item.user;
+  // Handle both cases: item.user as object {_id, name} or as string ID
+  const itemOwnerId = typeof item.user === 'object' ? item.user._id : item.user;
+  const isOwner = user?.id === itemOwnerId;
+  
+  // Debug logging to ensure proper owner detection
+  console.log('[ITEM_DETAIL] Owner check:', {
+    currentUserId: user?.id,
+    itemOwnerId: itemOwnerId,
+    itemUserType: typeof item.user,
+    isOwner: isOwner
+  });
 
   // Check if user has already requested this item and follow status
   useEffect(() => {
@@ -35,8 +45,7 @@ const ItemDetailScreen = ({ route, navigation }) => {
         );
         setHasRequestedBefore(hasRequested);
 
-        // Check follow status using global context - get the item owner's ID
-        const itemOwnerId = typeof item.user === 'object' ? item.user._id : item.user;
+        // Check follow status using global context
         if (itemOwnerId) {
           await checkFollowStatus(itemOwnerId);
         }
@@ -106,16 +115,26 @@ const ItemDetailScreen = ({ route, navigation }) => {
   };
 
   const handleFollowToggle = async () => {
-    const itemOwnerId = typeof item.user === 'object' ? item.user._id : item.user;
+    // Additional safety check - should never happen since UI hides button for owners
+    if (isOwner) {
+      Alert.alert("Info", "This is your own item. You cannot follow yourself.");
+      return;
+    }
+    
     const ownerName = typeof item.user === 'object' ? item.user.name : 'User';
     
     await toggleFollow(itemOwnerId, ownerName);
   };
 
   const handleStartChat = async () => {
+    // Additional safety check - should never happen since UI hides button for owners
+    if (isOwner) {
+      Alert.alert("Info", "This is your own item. You cannot chat with yourself.");
+      return;
+    }
+    
     setChatLoading(true);
     try {
-      const itemOwnerId = typeof item.user === 'object' ? item.user._id : item.user;
       const ownerName = typeof item.user === 'object' ? item.user.name : 'Owner';
       
       console.log('[ITEM_DETAIL] Starting chat with:', { itemOwnerId, ownerName, itemId: item._id });
@@ -173,12 +192,12 @@ const ItemDetailScreen = ({ route, navigation }) => {
               ) : (
                 <>
                   <Ionicons 
-                    name={isFollowing(typeof item.user === 'object' ? item.user._id : item.user) ? 'person-remove-outline' : 'person-add-outline'} 
+                    name={isFollowing(itemOwnerId) ? 'person-remove-outline' : 'person-add-outline'} 
                     size={18} 
                     color="#4A235A" 
                   />
                   <Text style={styles.actionButtonText}>
-                    {isFollowing(typeof item.user === 'object' ? item.user._id : item.user) ? 'Unfollow' : 'Follow'}
+                    {isFollowing(itemOwnerId) ? 'Unfollow' : 'Follow'}
                   </Text>
                 </>
               )}
