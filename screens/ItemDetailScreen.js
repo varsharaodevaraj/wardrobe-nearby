@@ -65,43 +65,79 @@ const ItemDetailScreen = ({ route, navigation }) => {
   }, [item._id, isOwner, checkFollowStatus]);
 
   const handleRentNow = async () => {
+    console.log('🎯 [REGULAR] handleRentNow called');
+    console.log('🎯 [REGULAR] isOwner:', isOwner);
+    console.log('🎯 [REGULAR] item.listingType:', item.listingType);
+    
     // Additional safety check - should never happen since UI hides button for owners
     if (isOwner) {
       Alert.alert("Info", "This is your own item. You can manage it from your profile.");
       return;
     }
 
-    // Show confirmation dialog first
+    // Show message input dialog
+    const isForSale = item.listingType === 'sell';
+    const actionText = isForSale ? "Purchase Request" : "Rental Request";
+    const priceText = isForSale ? `₹${item.price_per_day}` : `₹${item.price_per_day}/${item.rentalDuration || 'day'}`;
+    
+    console.log('🎯 [REGULAR] About to show Alert for request');
+    
+    // Show confirmation first, then ask for message
     Alert.alert(
-      "Confirm Rental Request",
-      `Do you want to send a rental request for "${item.name}" at ₹${item.price_per_day}/day?`,
+      `Send ${actionText}`,
+      `${isForSale ? 'Interested in buying' : 'Requesting'} "${item.name}" for ${priceText}`,
       [
         { text: "Cancel", style: "cancel" },
-        { text: "Send Request", onPress: submitRentalRequest }
+        { 
+          text: "Send Request", 
+          onPress: () => {
+            console.log('🎯 [REGULAR] Alert onPress called, submitting request');
+            submitRentalRequest("");
+          }
+        }
       ]
     );
   };
 
-  const submitRentalRequest = async () => {
+  const submitRentalRequest = async (customMessage = "") => {
+    console.log('🚀 [REGULAR] submitRentalRequest called with message:', customMessage);
     setLoading(true);
     try {
+      console.log('🚀 [REGULAR] Making API call to /rentals/request');
       // Use our secure API client to send the request
-      const response = await api('/rentals/request', 'POST', { itemId: item._id });
+      const response = await api('/rentals/request', 'POST', { 
+        itemId: item._id,
+        customMessage: customMessage.trim()
+      });
+      console.log('🚀 [REGULAR] API response received:', response);
       
       // Update local state to show request has been sent
       setHasRequestedBefore(true);
       
+      const requestType = item.listingType === 'sell' ? 'purchase request' : 'rental request';
       Alert.alert(
         "Request Sent! 🎉", 
-        `Your rental request for "${item.name}" has been sent to the owner. You'll be notified when they respond.`,
-        [{ text: "OK", onPress: () => navigation.goBack() }]
+        `Your ${requestType} for "${item.name}" has been sent to the owner and a message has been added to your chat. You'll be notified when they respond.`,
+        [
+          { text: "Go to Chat", onPress: () => {
+            const ownerName = typeof item.user === 'object' ? item.user.name : 'Owner';
+            navigation.navigate('Chat', {
+              participantId: itemOwnerId,
+              itemId: item._id,
+              participantName: ownerName,
+              itemName: item.name
+            });
+          }},
+          { text: "OK", onPress: () => navigation.goBack() }
+        ]
       );
     } catch (error) {
       console.error("[RENTAL_REQUEST] Error:", error);
       
       // Handle specific error cases
-      if (error.message.includes('already requested')) {
-        Alert.alert("Already Requested", "You have already sent a request for this item.");
+      if (error.message.includes('already sent a request') || error.message.includes('alreadyRequested')) {
+        const requestType = item.listingType === 'sell' ? 'purchase request' : 'rental request';
+        Alert.alert("Already Requested", `You have already sent a ${requestType} for this item. Please wait for the owner to respond.`);
         setHasRequestedBefore(true);
       } else if (error.message.includes('own item') || error.message.includes('isOwnItem')) {
         // This should not happen since UI prevents it, but handle gracefully
@@ -172,7 +208,6 @@ const ItemDetailScreen = ({ route, navigation }) => {
         <View style={styles.detailsContainer}>
           <Text style={styles.name}>{item.name}</Text>
           <Text style={styles.category}>{item.category}</Text>
-          <Text style={styles.description}>{item.description}</Text>
         </View>
       </ScrollView>
 
@@ -289,7 +324,6 @@ const styles = StyleSheet.create({
   detailsContainer: { padding: 20 },
   name: { fontSize: 28, fontWeight: 'bold', color: '#2c3e50', marginBottom: 8 },
   category: { fontSize: 18, color: '#7f8c8d', marginBottom: 16 },
-  description: { fontSize: 16, color: '#34495e', lineHeight: 24 },
   socialActions: { 
     flexDirection: 'row', 
     justifyContent: 'space-around', 

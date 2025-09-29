@@ -66,37 +66,74 @@ const ItemDetailScreenEnhanced = ({ route, navigation }) => {
   }, [item._id, isOwner]);
 
   const handleRentNow = async () => {
+    console.log('🎯 [ENHANCED] handleRentNow called');
+    console.log('🎯 [ENHANCED] isOwner:', isOwner);
+    console.log('🎯 [ENHANCED] item.listingType:', item.listingType);
+    
     if (isOwner) {
       Alert.alert("Info", "This is your own item. You can manage it from your profile.");
       return;
     }
 
+    // Show message input dialog
+    const isForSale = item.listingType === 'sell';
+    const actionText = isForSale ? "Purchase Request" : "Rental Request";
+    const priceText = isForSale ? `₹${item.price_per_day}` : `₹${item.price_per_day}/${item.rentalDuration || 'day'}`;
+    
+    console.log('🎯 [ENHANCED] About to show Alert for request');
+    
+    // Show confirmation first, then ask for message
     Alert.alert(
-      "Confirm Rental Request",
-      `Do you want to send a rental request for "${item.name}" at ₹${item.price_per_day}/day?`,
+      `Send ${actionText}`,
+      `${isForSale ? 'Interested in buying' : 'Requesting'} "${item.name}" for ${priceText}`,
       [
         { text: "Cancel", style: "cancel" },
-        { text: "Send Request", onPress: submitRentalRequest }
+        { 
+          text: "Send Request", 
+          onPress: () => {
+            console.log('🎯 [ENHANCED] Alert onPress called, submitting request');
+            submitRentalRequest("");
+          }
+        }
       ]
     );
   };
 
-  const submitRentalRequest = async () => {
+  const submitRentalRequest = async (customMessage = "") => {
+    console.log('🚀 [ENHANCED] submitRentalRequest called with message:', customMessage);
     setLoading(true);
     try {
-      const response = await api('/rentals/request', 'POST', { itemId: item._id });
+      console.log('🚀 [ENHANCED] Making API call to /rentals/request');
+      const response = await api('/rentals/request', 'POST', { 
+        itemId: item._id,
+        customMessage: customMessage.trim()
+      });
+      console.log('🚀 [ENHANCED] API response received:', response);
       setHasRequestedBefore(true);
       
+      const requestType = item.listingType === 'sell' ? 'purchase request' : 'rental request';
       Alert.alert(
         "Request Sent! 🎉", 
-        `Your rental request for "${item.name}" has been sent to the owner. You'll be notified when they respond.`,
-        [{ text: "OK", onPress: () => navigation.goBack() }]
+        `Your ${requestType} for "${item.name}" has been sent to the owner and a message has been added to your chat. You'll be notified when they respond.`,
+        [
+          { text: "Go to Chat", onPress: () => {
+            const ownerName = typeof item.user === 'object' ? item.user.name : 'Owner';
+            navigation.navigate('Chat', {
+              participantId: itemOwnerId,
+              itemId: item._id,
+              participantName: ownerName,
+              itemName: item.name
+            });
+          }},
+          { text: "OK", onPress: () => navigation.goBack() }
+        ]
       );
     } catch (error) {
       console.error("[RENTAL_REQUEST] Error:", error);
       
-      if (error.message.includes('already requested')) {
-        Alert.alert("Already Requested", "You have already sent a request for this item.");
+      if (error.message.includes('already sent a request') || error.message.includes('alreadyRequested')) {
+        const requestType = item.listingType === 'sell' ? 'purchase request' : 'rental request';
+        Alert.alert("Already Requested", `You have already sent a ${requestType} for this item. Please wait for the owner to respond.`);
         setHasRequestedBefore(true);
       } else if (error.message.includes('own item') || error.message.includes('isOwnItem')) {
         Alert.alert("Info", "This is your own item. You can manage it from your profile.");
@@ -283,7 +320,120 @@ const ItemDetailScreenEnhanced = ({ route, navigation }) => {
 
           <Text style={styles.name}>{item.name}</Text>
           <Text style={styles.category}>{item.category}</Text>
-          <Text style={styles.description}>{item.description}</Text>
+          
+          {/* Description Section */}
+          <View style={styles.descriptionSection}>
+            <Text style={styles.sectionTitle}>Description</Text>
+            <Text style={styles.description}>{item.description}</Text>
+          </View>
+
+          {/* Ratings Section */}
+          <View style={styles.ratingsSection}>
+            <Text style={styles.sectionTitle}>Ratings & Reviews</Text>
+            <View style={styles.ratingOverview}>
+              <View style={styles.ratingScore}>
+                <Text style={styles.ratingNumber}>4.5</Text>
+                <View style={styles.starsContainer}>
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <Ionicons
+                      key={star}
+                      name={star <= 4 ? "star" : star === 5 ? "star-half" : "star-outline"}
+                      size={16}
+                      color="#FFD700"
+                    />
+                  ))}
+                </View>
+                <Text style={styles.ratingCount}>Based on 23 reviews</Text>
+              </View>
+              <View style={styles.ratingBars}>
+                {[5, 4, 3, 2, 1].map((rating) => (
+                  <View key={rating} style={styles.ratingBar}>
+                    <Text style={styles.ratingLabel}>{rating}</Text>
+                    <Ionicons name="star" size={12} color="#FFD700" />
+                    <View style={styles.barBackground}>
+                      <View 
+                        style={[
+                          styles.barFill, 
+                          { width: `${rating === 5 ? 60 : rating === 4 ? 30 : rating === 3 ? 8 : rating === 2 ? 2 : 0}%` }
+                        ]} 
+                      />
+                    </View>
+                    <Text style={styles.ratingPercent}>
+                      {rating === 5 ? '60%' : rating === 4 ? '30%' : rating === 3 ? '8%' : rating === 2 ? '2%' : '0%'}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          </View>
+
+          {/* Reviews Section */}
+          <View style={styles.reviewsSection}>
+            <Text style={styles.sectionTitle}>Recent Reviews</Text>
+            {[
+              {
+                id: 1,
+                userName: "Priya S.",
+                rating: 5,
+                date: "2 days ago",
+                comment: "Amazing dress! Perfect fit and great quality. The owner was very responsive and helpful.",
+                verified: true
+              },
+              {
+                id: 2,
+                userName: "Rahul M.",
+                rating: 4,
+                date: "1 week ago", 
+                comment: "Good condition, exactly as described. Quick pickup and return process.",
+                verified: true
+              },
+              {
+                id: 3,
+                userName: "Sneha K.",
+                rating: 5,
+                date: "2 weeks ago",
+                comment: "Beautiful item! Got so many compliments. Highly recommend renting from this owner.",
+                verified: false
+              }
+            ].map((review) => (
+              <View key={review.id} style={styles.reviewCard}>
+                <View style={styles.reviewHeader}>
+                  <View style={styles.reviewerInfo}>
+                    <View style={styles.reviewerAvatar}>
+                      <Text style={styles.reviewerInitial}>
+                        {review.userName.charAt(0)}
+                      </Text>
+                    </View>
+                    <View>
+                      <View style={styles.reviewerNameRow}>
+                        <Text style={styles.reviewerName}>{review.userName}</Text>
+                        {review.verified && (
+                          <Ionicons name="checkmark-circle" size={14} color="#27AE60" />
+                        )}
+                      </View>
+                      <Text style={styles.reviewDate}>{review.date}</Text>
+                    </View>
+                  </View>
+                  <View style={styles.reviewRating}>
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <Ionicons
+                        key={star}
+                        name={star <= review.rating ? "star" : "star-outline"}
+                        size={14}
+                        color="#FFD700"
+                      />
+                    ))}
+                  </View>
+                </View>
+                <Text style={styles.reviewComment}>{review.comment}</Text>
+              </View>
+            ))}
+            
+            <TouchableOpacity style={styles.viewAllReviews}>
+              <Text style={styles.viewAllReviewsText}>View All Reviews</Text>
+              <Ionicons name="chevron-forward" size={16} color="#957DAD" />
+            </TouchableOpacity>
+          </View>
           
           {/* Additional Info */}
           <View style={styles.infoSection}>
@@ -305,44 +455,31 @@ const ItemDetailScreenEnhanced = ({ route, navigation }) => {
             <Text style={styles.priceLabel}>per day</Text>
           </View>
           
-          <View style={styles.actionButtons}>
-            <TouchableOpacity 
-              style={styles.chatButton}
-              onPress={() => navigation.navigate('Chat', { 
-                participantId: item.user._id || item.user,
-                itemId: item._id 
-              })}
-            >
-              <Ionicons name="chatbubble-outline" size={20} color="#957DAD" />
-              <Text style={styles.chatButtonText}>Chat</Text>
+          {checkingRequest ? (
+            <View style={styles.rentButton}>
+              <ActivityIndicator color="#4A235A" />
+            </View>
+          ) : hasRequestedBefore ? (
+            <TouchableOpacity style={styles.requestedButton} disabled={true}>
+              <Ionicons name="checkmark-circle" size={20} color="white" />
+              <Text style={styles.requestedButtonText}>Request Sent</Text>
             </TouchableOpacity>
-            
-            {checkingRequest ? (
-              <View style={styles.rentButton}>
-                <ActivityIndicator color="#4A235A" />
-              </View>
-            ) : hasRequestedBefore ? (
-              <TouchableOpacity style={styles.requestedButton} disabled={true}>
-                <Ionicons name="checkmark-circle" size={20} color="white" />
-                <Text style={styles.requestedButtonText}>Request Sent</Text>
-              </TouchableOpacity>
-            ) : (
-              <TouchableOpacity 
-                style={[styles.rentButton, loading && styles.rentButtonDisabled]} 
-                onPress={handleRentNow}
-                disabled={loading}
-              >
-                {loading ? (
-                  <ActivityIndicator color="white" />
-                ) : (
-                  <>
-                    <Ionicons name="bag-handle-outline" size={20} color="white" />
-                    <Text style={styles.rentButtonText}>Rent Now</Text>
-                  </>
-                )}
-              </TouchableOpacity>
-            )}
-          </View>
+          ) : (
+            <TouchableOpacity 
+              style={[styles.rentButton, loading && styles.rentButtonDisabled]} 
+              onPress={handleRentNow}
+              disabled={loading}
+            >
+              {loading ? (
+                <ActivityIndicator color="white" />
+              ) : (
+                <>
+                  <Ionicons name={item.listingType === 'sell' ? "card-outline" : "bag-handle-outline"} size={20} color="white" />
+                  <Text style={styles.rentButtonText}>{item.listingType === 'sell' ? 'Buy Now' : 'Rent Now'}</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          )}
         </View>
       )}
 
@@ -470,8 +607,167 @@ const styles = StyleSheet.create({
   },
   chatButtonText: { marginLeft: 4, fontSize: 14, color: '#957DAD', fontWeight: '500' },
   name: { fontSize: 28, fontWeight: 'bold', color: '#2c3e50', marginBottom: 8 },
-  category: { fontSize: 16, color: '#7f8c8d', marginBottom: 16 },
-  description: { fontSize: 16, color: '#34495e', lineHeight: 24, marginBottom: 20 },
+  category: { fontSize: 16, color: '#7f8c8d', marginBottom: 20 },
+  
+  // Description Section Styles
+  descriptionSection: {
+    marginBottom: 25,
+    paddingBottom: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f2f6',
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#2c3e50',
+    marginBottom: 12,
+  },
+  description: { 
+    fontSize: 16, 
+    color: '#34495e', 
+    lineHeight: 24,
+  },
+
+  // Ratings Section Styles
+  ratingsSection: {
+    marginBottom: 25,
+    paddingBottom: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f2f6',
+  },
+  ratingOverview: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  ratingScore: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  ratingNumber: {
+    fontSize: 48,
+    fontWeight: 'bold',
+    color: '#2c3e50',
+    marginBottom: 8,
+  },
+  starsContainer: {
+    flexDirection: 'row',
+    marginBottom: 8,
+  },
+  ratingCount: {
+    fontSize: 14,
+    color: '#7f8c8d',
+    textAlign: 'center',
+  },
+  ratingBars: {
+    flex: 2,
+    marginLeft: 20,
+  },
+  ratingBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  ratingLabel: {
+    fontSize: 14,
+    color: '#2c3e50',
+    width: 12,
+  },
+  barBackground: {
+    flex: 1,
+    height: 8,
+    backgroundColor: '#f1f2f6',
+    borderRadius: 4,
+    marginHorizontal: 8,
+    overflow: 'hidden',
+  },
+  barFill: {
+    height: '100%',
+    backgroundColor: '#FFD700',
+    borderRadius: 4,
+  },
+  ratingPercent: {
+    fontSize: 12,
+    color: '#7f8c8d',
+    width: 30,
+    textAlign: 'right',
+  },
+
+  // Reviews Section Styles
+  reviewsSection: {
+    marginBottom: 25,
+  },
+  reviewCard: {
+    backgroundColor: '#f8f9fa',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+  },
+  reviewHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 12,
+  },
+  reviewerInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  reviewerAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#E0BBE4',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  reviewerInitial: {
+    color: '#4A235A',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  reviewerNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 2,
+  },
+  reviewerName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#2c3e50',
+    marginRight: 6,
+  },
+  reviewDate: {
+    fontSize: 12,
+    color: '#7f8c8d',
+  },
+  reviewRating: {
+    flexDirection: 'row',
+  },
+  reviewComment: {
+    fontSize: 14,
+    color: '#34495e',
+    lineHeight: 20,
+  },
+  viewAllReviews: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderWidth: 1,
+    borderColor: '#E0BBE4',
+    borderRadius: 25,
+    marginTop: 8,
+  },
+  viewAllReviewsText: {
+    fontSize: 16,
+    color: '#957DAD',
+    fontWeight: '500',
+    marginRight: 4,
+  },
   infoSection: { marginTop: 10 },
   infoItem: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
   infoText: { marginLeft: 8, fontSize: 14, color: '#7f8c8d' },
@@ -487,7 +783,6 @@ const styles = StyleSheet.create({
   priceSection: { alignItems: 'flex-start' },
   price: { fontSize: 24, fontWeight: 'bold', color: '#2c3e50' },
   priceLabel: { fontSize: 14, color: '#7f8c8d', marginTop: 2 },
-  actionButtons: { flexDirection: 'row', alignItems: 'center' },
   rentButton: { 
     backgroundColor: '#957DAD', 
     paddingVertical: 12, 
