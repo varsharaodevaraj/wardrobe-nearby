@@ -6,6 +6,7 @@ import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-cont
 import { Ionicons } from '@expo/vector-icons';
 
 import { AuthProvider, useAuth } from "./context/AuthContext";
+import { FollowProvider } from "./context/FollowContext";
 import ErrorBoundary from "./components/ErrorBoundary";
 
 // Import all screens
@@ -19,6 +20,12 @@ import ProfileScreen from "./screens/ProfileScreen";
 import AddStoryScreen from "./screens/AddStoryScreen";
 import StoryViewerScreen from "./screens/StoryViewerScreen";
 import EditItemScreen from "./screens/EditItemScreen";
+import ChatListScreen from "./screens/ChatListScreen";
+import ChatScreen from "./screens/ChatScreen";
+
+// Enhanced screens (optional - for testing new features)
+import AddItemScreenEnhanced from "./screens/AddItemScreenEnhanced";
+import ItemDetailScreenEnhanced from "./screens/ItemDetailScreenEnhanced";
 
 const AuthStack = createNativeStackNavigator();
 const MainStack = createNativeStackNavigator();
@@ -30,9 +37,11 @@ function MainFlow() {
     <MainStack.Navigator screenOptions={{ headerShown: false }}>
       <MainStack.Screen name="MainTabs" component={MainTabs} />
       <MainStack.Screen name="ItemDetail" component={ItemDetailScreen} />
+      <MainStack.Screen name="ItemDetailEnhanced" component={ItemDetailScreenEnhanced} />
       <MainStack.Screen name="EditItem" component={EditItemScreen} />
       <MainStack.Screen name="AddStory" component={AddStoryScreen} options={{ presentation: 'modal' }} />
       <MainStack.Screen name="StoryViewer" component={StoryViewerScreen} options={{ presentation: 'modal' }} />
+      <MainStack.Screen name="Chat" component={ChatScreen} />
     </MainStack.Navigator>
   );
 }
@@ -75,6 +84,13 @@ function MainTabs() {
         }}
       />
       <Tab.Screen 
+        name="Messages" 
+        component={ChatListScreen}
+        options={{
+          tabBarIcon: ({ color, size }) => <Ionicons name="chatbubble-outline" size={size} color={color} />,
+        }}
+      />
+      <Tab.Screen 
         name="Profile" 
         component={ProfileScreen}
         options={{
@@ -109,7 +125,9 @@ export default function App() {
     <SafeAreaProvider>
       <ErrorBoundary>
         <AuthProvider>
-          <AppNavigator />
+          <FollowProvider>
+            <AppNavigator />
+          </FollowProvider>
         </AuthProvider>
       </ErrorBoundary>
     </SafeAreaProvider>

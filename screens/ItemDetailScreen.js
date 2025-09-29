@@ -1,52 +1,67 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, Image, ScrollView, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import api from '../utils/api'; // Import our secure API client
 import { useAuth } from '../context/AuthContext'; // To check if the user is the owner
+import { useFollow } from '../context/FollowContext'; // For global follow management
 
 const ItemDetailScreen = ({ route, navigation }) => {
   const { item } = route.params;
   const { user } = useAuth(); // Get the current logged-in user
+  const { isFollowing, toggleFollow, checkFollowStatus, loading: followLoading } = useFollow();
   const [loading, setLoading] = useState(false);
   const [hasRequestedBefore, setHasRequestedBefore] = useState(false);
   const [checkingRequest, setCheckingRequest] = useState(true);
   const [imageError, setImageError] = useState(false);
+  const [chatLoading, setChatLoading] = useState(false);
 
   // Check if the logged-in user is the owner of the item
   const isOwner = user?.id === item.user;
 
-  // Check if user has already requested this item (optimized)
+  // Check if user has already requested this item and follow status
   useEffect(() => {
-    const checkExistingRequest = async () => {
+    const initializeScreen = async () => {
       if (isOwner) {
         setCheckingRequest(false);
         return;
       }
+      
       try {
-        // Only get pending requests to reduce data transfer
+        // Check existing rental request
         const requests = await api('/rentals/outgoing?status=pending');
         const hasRequested = requests.some(
           request => request.item._id === item._id
         );
         setHasRequestedBefore(hasRequested);
+
+        // Check follow status using global context - get the item owner's ID
+        const itemOwnerId = typeof item.user === 'object' ? item.user._id : item.user;
+        if (itemOwnerId) {
+          await checkFollowStatus(itemOwnerId);
+        }
       } catch (error) {
-        console.error('[ITEM_DETAIL] Error checking requests:', error);
-        // If error, assume no request to allow user to try
+        console.error('[ITEM_DETAIL] Error initializing screen:', error);
         setHasRequestedBefore(false);
       } finally {
         setCheckingRequest(false);
       }
     };
 
-    // Only check if not owner
     if (!isOwner) {
-      checkExistingRequest();
+      initializeScreen();
     } else {
       setCheckingRequest(false);
     }
-  }, [item._id, isOwner]);
+  }, [item._id, isOwner, checkFollowStatus]);
 
   const handleRentNow = async () => {
+    // Additional safety check - should never happen since UI hides button for owners
+    if (isOwner) {
+      Alert.alert("Info", "This is your own item. You can manage it from your profile.");
+      return;
+    }
+
     // Show confirmation dialog first
     Alert.alert(
       "Confirm Rental Request",
@@ -79,13 +94,44 @@ const ItemDetailScreen = ({ route, navigation }) => {
       if (error.message.includes('already requested')) {
         Alert.alert("Already Requested", "You have already sent a request for this item.");
         setHasRequestedBefore(true);
-      } else if (error.message.includes('own item')) {
+      } else if (error.message.includes('own item') || error.message.includes('isOwnItem')) {
+        // This should not happen since UI prevents it, but handle gracefully
         Alert.alert("Info", "This is your own item. You can manage it from your profile.");
       } else {
         Alert.alert("Request Failed", error.message || "Could not submit your request. Please try again.");
       }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleFollowToggle = async () => {
+    const itemOwnerId = typeof item.user === 'object' ? item.user._id : item.user;
+    const ownerName = typeof item.user === 'object' ? item.user.name : 'User';
+    
+    await toggleFollow(itemOwnerId, ownerName);
+  };
+
+  const handleStartChat = async () => {
+    setChatLoading(true);
+    try {
+      const itemOwnerId = typeof item.user === 'object' ? item.user._id : item.user;
+      const ownerName = typeof item.user === 'object' ? item.user.name : 'Owner';
+      
+      console.log('[ITEM_DETAIL] Starting chat with:', { itemOwnerId, ownerName, itemId: item._id });
+      
+      // Navigate to chat with the owner
+      navigation.navigate('Chat', {
+        participantId: itemOwnerId,
+        itemId: item._id,
+        participantName: ownerName,
+        itemName: item.name
+      });
+    } catch (error) {
+      console.error('[ITEM_DETAIL] Chat error:', error);
+      Alert.alert("Error", "Could not start chat. Please try again.");
+    } finally {
+      setChatLoading(false);
     }
   };
 
@@ -114,31 +160,82 @@ const ItemDetailScreen = ({ route, navigation }) => {
       {/* --- ENHANCED FOOTER --- */}
       {/* The footer will not show if the user is the owner of the item */}
       {!isOwner && (
-        <View style={styles.footer}>
-          <Text style={styles.price}>{`₹${item.price_per_day} / day`}</Text>
-          
-          {checkingRequest ? (
-            <View style={styles.rentButton}>
-              <ActivityIndicator color="#4A235A" />
-            </View>
-          ) : hasRequestedBefore ? (
-            <TouchableOpacity style={styles.requestedButton} disabled={true}>
-              <Text style={styles.requestedButtonText}>✓ Request Sent</Text>
-            </TouchableOpacity>
-          ) : (
+        <>
+          {/* Social Actions Bar */}
+          <View style={styles.socialActions}>
             <TouchableOpacity 
-              style={[styles.rentButton, loading && styles.rentButtonDisabled]} 
-              onPress={handleRentNow}
-              disabled={loading}
+              style={[styles.actionButton, styles.followButton]}
+              onPress={handleFollowToggle}
+              disabled={followLoading}
             >
-              {loading ? (
-                <ActivityIndicator color="#4A235A" />
+              {followLoading ? (
+                <ActivityIndicator size="small" color="#4A235A" />
               ) : (
-                <Text style={styles.rentButtonText}>Rent Now</Text>
+                <>
+                  <Ionicons 
+                    name={isFollowing(typeof item.user === 'object' ? item.user._id : item.user) ? 'person-remove-outline' : 'person-add-outline'} 
+                    size={18} 
+                    color="#4A235A" 
+                  />
+                  <Text style={styles.actionButtonText}>
+                    {isFollowing(typeof item.user === 'object' ? item.user._id : item.user) ? 'Unfollow' : 'Follow'}
+                  </Text>
+                </>
               )}
             </TouchableOpacity>
-          )}
-        </View>
+
+            <TouchableOpacity 
+              style={[styles.actionButton, styles.chatButton]}
+              onPress={handleStartChat}
+              disabled={chatLoading}
+            >
+              {chatLoading ? (
+                <ActivityIndicator size="small" color="#4A235A" />
+              ) : (
+                <>
+                  <Ionicons name="chatbubble-outline" size={18} color="#4A235A" />
+                  <Text style={styles.actionButtonText}>Chat</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
+
+          {/* Main Footer */}
+          <View style={styles.footer}>
+            <View style={styles.priceContainer}>
+              <Text style={styles.price}>
+                ₹{item.price_per_day}
+              </Text>
+              <Text style={styles.priceLabel}>
+                {item.listingType === 'sell' ? '' : `${item.rentalDuration || 'per day'}`}
+              </Text>
+            </View>
+            
+            {checkingRequest ? (
+              <View style={styles.rentButton}>
+                <ActivityIndicator color="#4A235A" />
+              </View>
+            ) : hasRequestedBefore ? (
+              <TouchableOpacity style={styles.requestedButton} disabled={true}>
+                <Text style={styles.requestedButtonText}>✓ Request Sent</Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity 
+                style={[styles.rentButton, loading && styles.rentButtonDisabled]} 
+                onPress={handleRentNow}
+                disabled={loading}
+              >
+                {loading ? (
+                  <ActivityIndicator color="#4A235A" />
+                ) : (
+                  <Text style={styles.rentButtonText}>
+                    {item.listingType === 'sell' ? 'Buy Now' : 'Rent Now'}
+                  </Text>
+                )}
+              </TouchableOpacity>
+            )}
+          </View>
+        </>
       )}
 
       {/* Show owner message if user owns this item */}
@@ -146,6 +243,19 @@ const ItemDetailScreen = ({ route, navigation }) => {
         <View style={styles.ownerFooter}>
           <Text style={styles.ownerText}>📝 This is your listing</Text>
           <Text style={styles.ownerSubtext}>Other users can send you rental requests</Text>
+        </View>
+      )}
+      
+      {/* Enhanced View Button */}
+      {!isOwner && (
+        <View style={styles.enhancedViewContainer}>
+          <TouchableOpacity 
+            style={styles.enhancedViewButton}
+            onPress={() => navigation.navigate('ItemDetailEnhanced', { item })}
+          >
+            <Ionicons name="eye-outline" size={20} color="#957DAD" />
+            <Text style={styles.enhancedViewText}>Enhanced View</Text>
+          </TouchableOpacity>
         </View>
       )}
     </SafeAreaView>
@@ -161,8 +271,33 @@ const styles = StyleSheet.create({
   name: { fontSize: 28, fontWeight: 'bold', color: '#2c3e50', marginBottom: 8 },
   category: { fontSize: 18, color: '#7f8c8d', marginBottom: 16 },
   description: { fontSize: 16, color: '#34495e', lineHeight: 24 },
+  socialActions: { 
+    flexDirection: 'row', 
+    justifyContent: 'space-around', 
+    paddingVertical: 15, 
+    backgroundColor: '#F8F9FA', 
+    borderTopWidth: 1, 
+    borderTopColor: '#E9ECEF' 
+  },
+  actionButton: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    paddingVertical: 8, 
+    paddingHorizontal: 16, 
+    borderRadius: 20, 
+    borderWidth: 1.5, 
+    borderColor: '#E0BBE4', 
+    backgroundColor: '#FFFFFF',
+    minWidth: 90,
+    justifyContent: 'center'
+  },
+  followButton: { marginRight: 10 },
+  chatButton: { marginLeft: 10 },
+  actionButtonText: { marginLeft: 6, fontSize: 14, color: '#4A235A', fontWeight: '500' },
   footer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, borderTopWidth: 1, borderTopColor: '#E9ECEF' },
+  priceContainer: { alignItems: 'flex-start' },
   price: { fontSize: 22, fontWeight: 'bold', color: '#2c3e50' },
+  priceLabel: { fontSize: 14, color: '#7f8c8d', marginTop: 2 },
   rentButton: { backgroundColor: '#E0BBE4', paddingVertical: 15, paddingHorizontal: 30, borderRadius: 30, minWidth: 150, alignItems: 'center' },
   rentButtonDisabled: { backgroundColor: '#CED4DA' },
   rentButtonText: { color: '#4A235A', fontSize: 18, fontWeight: 'bold' },
@@ -171,6 +306,17 @@ const styles = StyleSheet.create({
   ownerFooter: { padding: 20, backgroundColor: '#F8F9FA', borderTopWidth: 1, borderTopColor: '#E9ECEF', alignItems: 'center' },
   ownerText: { fontSize: 16, fontWeight: 'bold', color: '#2c3e50', marginBottom: 4 },
   ownerSubtext: { fontSize: 14, color: '#7f8c8d', textAlign: 'center' },
+  enhancedViewContainer: { padding: 15, backgroundColor: '#f8f9fa', alignItems: 'center' },
+  enhancedViewButton: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    paddingVertical: 8, 
+    paddingHorizontal: 16,
+    borderWidth: 1,
+    borderColor: '#E0BBE4',
+    borderRadius: 20,
+  },
+  enhancedViewText: { marginLeft: 6, fontSize: 14, color: '#957DAD', fontWeight: '500' },
 });
 
 export default ItemDetailScreen;

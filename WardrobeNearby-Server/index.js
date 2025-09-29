@@ -5,7 +5,9 @@ require('dotenv').config();
 const authRoutes = require('./routes/auth');
 const itemRoutes = require('./routes/items');
 const rentalRoutes = require('./routes/rentals');
-const storyRoutes = require('./routes/stories'); // --- IMPORT STORY ROUTES ---
+const storyRoutes = require('./routes/stories');
+const userRoutes = require('./routes/users');
+const chatRoutes = require('./routes/chats');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -20,7 +22,9 @@ app.use(express.json());
 app.use('/api/auth', authRoutes);
 app.use('/api/items', itemRoutes);
 app.use('/api/rentals', rentalRoutes);
-app.use('/api/stories', storyRoutes); // --- USE STORY ROUTES ---
+app.use('/api/stories', storyRoutes);
+app.use('/api/users', userRoutes);
+app.use('/api/chats', chatRoutes);
 
 // Get local network IP address dynamically
 const os = require('os');

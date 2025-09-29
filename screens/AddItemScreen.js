@@ -17,6 +17,10 @@ const AddItemScreen = ({ navigation }) => {
   const [description, setDescription] = useState('');
   const [price, setPrice] = useState('');
   const [loading, setLoading] = useState(false);
+  // New states for enhanced features
+  const [listingType, setListingType] = useState('rent'); // 'rent' or 'sell'
+  const [rentalDuration, setRentalDuration] = useState('per day'); // 'per day', 'per week', 'per month', 'custom'
+  const [customDuration, setCustomDuration] = useState('');
   const { user } = useAuth();
 
   // --- NEW: Function to show Camera/Gallery choice ---
@@ -95,8 +99,12 @@ const AddItemScreen = ({ navigation }) => {
       const imageUrl = cloudinaryData.secure_url;
 
       const itemData = {
-        name: itemName, category, description,
+        name: itemName, 
+        category, 
+        description,
         price_per_day: parseFloat(price),
+        listingType, // 'rent' or 'sell'
+        rentalDuration: rentalDuration === 'custom' ? customDuration : rentalDuration,
         imageUrl,
       };
       
@@ -135,7 +143,74 @@ const AddItemScreen = ({ navigation }) => {
         <StyledTextInput label="Item Name" value={itemName} onChangeText={setItemName} />
         <StyledTextInput label="Category" value={category} onChangeText={setCategory} />
         <StyledTextInput label="Description" value={description} onChangeText={setDescription} multiline />
-        <StyledTextInput label="Price per day (₹)" value={price} onChangeText={setPrice} keyboardType="numeric" />
+        
+        {/* Listing Type Selection */}
+        <View style={styles.sectionContainer}>
+          <Text style={styles.sectionTitle}>Listing Type</Text>
+          <View style={styles.optionContainer}>
+            <TouchableOpacity 
+              style={[styles.optionButton, listingType === 'rent' && styles.optionButtonSelected]}
+              onPress={() => setListingType('rent')}
+            >
+              <Ionicons 
+                name={listingType === 'rent' ? 'radio-button-on' : 'radio-button-off'} 
+                size={20} 
+                color={listingType === 'rent' ? '#957DAD' : '#7f8c8d'} 
+              />
+              <Text style={[styles.optionText, listingType === 'rent' && styles.optionTextSelected]}>
+                For Rent
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={[styles.optionButton, listingType === 'sell' && styles.optionButtonSelected]}
+              onPress={() => setListingType('sell')}
+            >
+              <Ionicons 
+                name={listingType === 'sell' ? 'radio-button-on' : 'radio-button-off'} 
+                size={20} 
+                color={listingType === 'sell' ? '#957DAD' : '#7f8c8d'} 
+              />
+              <Text style={[styles.optionText, listingType === 'sell' && styles.optionTextSelected]}>
+                For Sale
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Rental Duration (only show for rent) */}
+        {listingType === 'rent' && (
+          <View style={styles.sectionContainer}>
+            <Text style={styles.sectionTitle}>Rental Duration</Text>
+            <View style={styles.durationContainer}>
+              {['per day', 'per week', 'per month', 'custom'].map((duration) => (
+                <TouchableOpacity
+                  key={duration}
+                  style={[styles.durationButton, rentalDuration === duration && styles.durationButtonSelected]}
+                  onPress={() => setRentalDuration(duration)}
+                >
+                  <Text style={[styles.durationText, rentalDuration === duration && styles.durationTextSelected]}>
+                    {duration === 'custom' ? 'Custom' : duration}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            {rentalDuration === 'custom' && (
+              <StyledTextInput 
+                label="Custom Duration (e.g., '3 days', '2 weeks')" 
+                value={customDuration} 
+                onChangeText={setCustomDuration}
+                placeholder="e.g., 3 days, 2 weeks, 1 month"
+              />
+            )}
+          </View>
+        )}
+
+        <StyledTextInput 
+          label={listingType === 'rent' ? `Price ${rentalDuration === 'custom' ? `(₹ ${customDuration || 'per duration'})` : `(₹ ${rentalDuration})`}` : "Sale Price (₹)"} 
+          value={price} 
+          onChangeText={setPrice} 
+          keyboardType="numeric" 
+        />
         <TouchableOpacity style={[styles.submitButton, loading && styles.submitButtonDisabled]} onPress={handleSubmit} disabled={loading}>
           {loading ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.submitButtonText}>List My Item</Text>}
         </TouchableOpacity>
@@ -155,6 +230,18 @@ const styles = StyleSheet.create({
   submitButton: { backgroundColor: '#957DAD', paddingVertical: 15, borderRadius: 30, alignItems: 'center', marginTop: 20 },
   submitButtonDisabled: { backgroundColor: '#CED4DA' },
   submitButtonText: { color: '#FFFFFF', fontSize: 18, fontWeight: 'bold' },
+  sectionContainer: { marginBottom: 20 },
+  sectionTitle: { fontSize: 16, fontWeight: '600', color: '#34495e', marginBottom: 12 },
+  optionContainer: { flexDirection: 'row', justifyContent: 'space-around' },
+  optionButton: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 20, borderRadius: 25, backgroundColor: '#F8F9FA', flex: 1, marginHorizontal: 5 },
+  optionButtonSelected: { backgroundColor: '#E0BBE4' },
+  optionText: { marginLeft: 8, fontSize: 14, color: '#7f8c8d', fontWeight: '500' },
+  optionTextSelected: { color: '#4A235A' },
+  durationContainer: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
+  durationButton: { paddingVertical: 8, paddingHorizontal: 16, borderRadius: 20, backgroundColor: '#F8F9FA', marginBottom: 8, minWidth: '45%', alignItems: 'center' },
+  durationButtonSelected: { backgroundColor: '#E0BBE4' },
+  durationText: { fontSize: 14, color: '#7f8c8d', fontWeight: '500' },
+  durationTextSelected: { color: '#4A235A' },
 });
 
 export default AddItemScreen;
