@@ -204,7 +204,23 @@ const ProfileScreen = () => {
         rentals: rentalsData,
       });
     } catch (error) {
-      Alert.alert("Error", "Could not fetch your profile data.");
+      console.error("Profile data fetch error:", error);
+      
+      // Handle authentication errors gracefully
+      if (error.message && error.message.includes('Session expired')) {
+        // Don't show alert for session expired - user will be redirected to login
+        console.log("[PROFILE] Session expired, user will be logged out");
+      } else {
+        Alert.alert("Error", "Could not fetch your profile data.");
+      }
+      
+      // Set empty data on error to prevent crashes
+      setData({
+        listings: [],
+        incoming: [],
+        outgoing: [],
+        rentals: [],
+      });
     } finally {
       setLoading(false);
     }
@@ -283,6 +299,13 @@ const ProfileScreen = () => {
     <SafeAreaView style={styles.container} edges={["top"]}>
       <ScrollView>
         <View style={styles.header}>
+          <TouchableOpacity 
+            style={styles.refreshButton} 
+            onPress={fetchData}
+            disabled={loading}
+          >
+            <Ionicons name="refresh" size={24} color={loading ? "#CED4DA" : "#957DAD"} />
+          </TouchableOpacity>
           <View style={styles.avatar}>
             <Text style={styles.avatarText}>
               {user?.name?.charAt(0).toUpperCase()}
@@ -336,6 +359,15 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
     borderBottomWidth: 1,
     borderBottomColor: "#E9ECEF",
+    position: "relative",
+  },
+  refreshButton: {
+    position: "absolute",
+    top: 30,
+    right: 20,
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: "#F8F9FA",
   },
   avatar: {
     width: 80,
@@ -433,6 +465,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#ecf0f1",
   },
   revokeButtonText: { color: "#E74C3C", fontWeight: "600", fontSize: 12 },
+
 });
 
 export default ProfileScreen;

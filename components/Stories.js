@@ -10,9 +10,9 @@ const Stories = React.memo(() => {
   const [hasLoaded, setHasLoaded] = useState(false);
   const navigation = useNavigation();
 
-  const fetchAndGroupStories = useCallback(async () => {
+  const fetchAndGroupStories = useCallback(async (forceRefresh = false) => {
     try {
-      if (!hasLoaded) setLoading(true); // Only show spinner on first load
+      if (!hasLoaded || forceRefresh) setLoading(true); // Show spinner on first load or force refresh
       const flatStories = await api('/stories');
 
       // --- OPTIMIZED GROUPING LOGIC ---
@@ -48,11 +48,9 @@ const Stories = React.memo(() => {
     }
   }, [hasLoaded]);
 
-  // Only fetch on first focus, not every time
+  // Fetch stories when component focuses - always refresh to show new stories
   useFocusEffect(useCallback(() => {
-    if (!hasLoaded) {
-      fetchAndGroupStories();
-    }
+    fetchAndGroupStories(!hasLoaded); // Force refresh on subsequent visits
   }, [fetchAndGroupStories, hasLoaded]));
 
   // --- NEW: Function to open the story viewer with a user's collection of stories ---

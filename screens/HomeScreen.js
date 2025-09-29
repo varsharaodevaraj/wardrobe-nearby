@@ -23,6 +23,18 @@ const HomeScreen = React.memo(() => {
       setItems(data);
     } catch (error) {
       console.error("Failed to fetch items:", error);
+      
+      // Handle authentication errors gracefully
+      if (error.message && error.message.includes('Session expired')) {
+        console.log("[HOME] Session expired, user will be logged out");
+        // Don't show error for session expired - user will be redirected to login
+      } else {
+        // Only show error for non-auth issues
+        console.error("Non-auth error fetching items:", error.message);
+      }
+      
+      // Set empty items array on error
+      setItems([]);
     } finally {
       setLoading(false);
       setRefreshing(false);

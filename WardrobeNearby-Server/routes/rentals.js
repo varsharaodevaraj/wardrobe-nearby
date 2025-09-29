@@ -11,7 +11,7 @@ router.post('/request', auth, async (req, res) => {
     const item = await Item.findById(itemId);
     if (!item) return res.status(404).json({ message: 'Item not found.' });
     if (item.user.toString() === req.user.id) {
-      return res.status(400).json({ message: "You cannot rent your own item." });
+      return res.status(400).json({ message: "This is your own item. You can manage it from your profile." });
     }
     const newRental = new Rental({ item: itemId, borrower: req.user.id, owner: item.user });
     await newRental.save();

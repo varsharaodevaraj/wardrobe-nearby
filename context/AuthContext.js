@@ -1,6 +1,6 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import * as SecureStore from 'expo-secure-store';
-import api from '../utils/api'; // Import our new API client
+import api, { setLogoutCallback } from '../utils/api'; // Import our new API client
 
 const AuthContext = createContext();
 
@@ -17,16 +17,27 @@ export const AuthProvider = ({ children }) => {
 
         if (token && userJson) {
           console.log("[AUTH] Token and user found in storage, setting user state.");
+          // Set user immediately - invalid tokens will be handled by API calls
           setUser(JSON.parse(userJson));
         } else {
           console.log("[AUTH] No token/user found in storage.");
         }
       } catch (error) {
         console.error("[AUTH] Error loading user from storage:", error);
+        // If there's an error, clear any potentially corrupted data
+        try {
+          await SecureStore.deleteItemAsync('token');
+          await SecureStore.deleteItemAsync('user');
+        } catch (clearError) {
+          console.error("[AUTH] Error clearing corrupted storage:", clearError);
+        }
       } finally {
         setLoading(false);
       }
     };
+
+    // Register the logout callback with the API utility
+    setLogoutCallback(logout);
 
     loadUser();
   }, []);
@@ -60,11 +71,18 @@ export const AuthProvider = ({ children }) => {
   };
 
   const logout = async () => {
+    console.log("[AUTH] Logging out user");
     // Delete the token and user data from storage
-    await SecureStore.deleteItemAsync('token');
-    await SecureStore.deleteItemAsync('user');
+    try {
+      await SecureStore.deleteItemAsync('token');
+      await SecureStore.deleteItemAsync('user');
+    } catch (error) {
+      console.error("[AUTH] Error clearing storage during logout:", error);
+    }
     setUser(null);
   };
+
+
 
   // If the app is still checking for a token, we can show a loading screen
   if (loading) {

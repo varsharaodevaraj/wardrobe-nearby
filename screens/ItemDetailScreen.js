@@ -80,7 +80,7 @@ const ItemDetailScreen = ({ route, navigation }) => {
         Alert.alert("Already Requested", "You have already sent a request for this item.");
         setHasRequestedBefore(true);
       } else if (error.message.includes('own item')) {
-        Alert.alert("Cannot Rent", "You cannot rent your own item.");
+        Alert.alert("Info", "This is your own item. You can manage it from your profile.");
       } else {
         Alert.alert("Request Failed", error.message || "Could not submit your request. Please try again.");
       }
