@@ -1,7 +1,7 @@
 import * as SecureStore from 'expo-secure-store';
 import { API_URL } from '../config';
 
-console.log('🚀 [API] Using dynamic API URL:', API_URL);
+console.log('[API] Using dynamic API URL:', API_URL);
 
 // Global reference to logout function (will be set by AuthContext)
 let globalLogout = null;
@@ -17,9 +17,9 @@ const api = async (endpoint, method = 'GET', body = null) => {
   
   // Debug logging for token
   if (token) {
-    console.log(`🔑 [API] Using token for ${endpoint}: ${token.substring(0, 20)}...`);
+    console.log(`[API] Using token for ${endpoint}: ${token.substring(0, 20)}...`);
   } else {
-    console.log(`🔓 [API] No token found for ${endpoint}`);
+    console.log(`[API] No token found for ${endpoint}`);
   }
 
   const headers = { 'Content-Type': 'application/json' };
@@ -29,9 +29,9 @@ const api = async (endpoint, method = 'GET', body = null) => {
   if (body) config.body = JSON.stringify(body);
 
   try {
-    // ✅ Always ensure endpoint starts with "/"
+    // Always ensure endpoint starts with "/"
     const url = `${API_URL}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
-    console.log('🌐 Fetching:', url);
+    console.log('Fetching:', url);
 
     const response = await fetch(url, config);
 
@@ -46,7 +46,7 @@ const api = async (endpoint, method = 'GET', body = null) => {
           (data.message.includes('Token is not valid') || 
            data.message.includes('No token, authorization denied'))) {
         
-        console.error('🔐 [AUTH] Invalid token detected, logging out user');
+        console.error('[AUTH] Invalid token detected, logging out user');
         
         // Clear invalid token from storage
         try {
@@ -71,7 +71,7 @@ const api = async (endpoint, method = 'GET', body = null) => {
 
     return data;
   } catch (error) {
-    console.error(`🚨 API Error on endpoint ${endpoint}:`, error);
+    console.error(`API Error on endpoint ${endpoint}:`, error);
     throw error;
   }
 };
