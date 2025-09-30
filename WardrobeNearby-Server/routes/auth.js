@@ -1,17 +1,23 @@
 const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken'); // --- IMPORT JWT ---
+const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 
 router.post('/signup', async (req, res) => {
+
   const { name, email, password } = req.body;
+
   try {
+    //checking if user alrdy exists:
     let user = await User.findOne({ email });
     if (user) return res.status(400).json({ message: 'User already exists.' });
+    // creating new user:
     user = new User({ name, email, password });
+    // hashing the password:
     const salt = await bcrypt.genSalt(10);
     user.password = await bcrypt.hash(password, salt);
+    
     await user.save();
     res.status(201).json({ message: 'User registered successfully!' });
   } catch (error) {
@@ -30,7 +36,7 @@ router.post('/login', async (req, res) => {
     // --- CREATE THE JWT ---
     const payload = {
       user: {
-        id: user.id, // We put the user's ID inside the token
+        id: user.id, // putting the user's ID inside the token
       },
     };
 
@@ -40,10 +46,10 @@ router.post('/login', async (req, res) => {
       { expiresIn: '8h' }, // The token will be valid for 8 hours
       (err, token) => {
         if (err) throw err;
-        // --- SEND THE TOKEN BACK TO THE APP ---
+        // --- SENDingg THE TOKEN BACK TO THE APP ---
         res.status(200).json({ 
           message: 'Login successful!', 
-          token: token, // The VIP Pass
+          token: token,
           user: { id: user.id, name: user.name } 
         });
       }

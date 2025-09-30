@@ -2,6 +2,7 @@ const express = require('express');
 const mongoose = require('mongoose');
 require('dotenv').config();
 
+// imports
 const authRoutes = require('./routes/auth');
 const itemRoutes = require('./routes/items');
 const rentalRoutes = require('./routes/rentals');
@@ -12,10 +13,12 @@ const chatRoutes = require('./routes/chats');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// DB connect
 mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log('MongoDB connected successfully.'))
   .catch(err => console.error('MongoDB connection error:', err));
 
+// Middleware
 app.use(express.json());
 
 // API Routes
@@ -44,6 +47,7 @@ const getLocalIP = () => {
 
 const localIP = getLocalIP();
 
+// listening to the port
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Server is running successfully!`);
   console.log(`📱 Mobile access: http://${localIP}:${PORT}`);
