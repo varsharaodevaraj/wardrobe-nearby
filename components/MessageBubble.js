@@ -40,7 +40,7 @@ const MessageBubble = ({ message, isOwn, user, showTime = false }) => {
       case 'delivered':
         return <Ionicons name="checkmark-done" size={14} color="#8E8E93" />;
       case 'read':
-        return <Ionicons name="checkmark-done" size={14} color="#007AFF" />;
+        return <Ionicons name="checkmark-done" size={14} color="#4A90E2" />;
       default:
         return null;
     }

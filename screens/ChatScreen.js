@@ -11,6 +11,7 @@ import {
   Platform,
   Alert,
   ActivityIndicator,
+  Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context'; // <-- ✅ THIS IS THE NEW, CORRECT IMPORT
 import { Ionicons } from '@expo/vector-icons';
@@ -18,6 +19,7 @@ import { useAuth } from '../context/AuthContext';
 import { useChatContext } from '../context/ChatContext';
 import MessageBubble from '../components/MessageBubble';
 import TypingIndicator from '../components/TypingIndicator';
+import MessageNotification from '../components/MessageNotification';
 import api from '../utils/api';
 
 const ChatScreen = ({ route, navigation }) => {
@@ -47,8 +49,13 @@ const ChatScreen = ({ route, navigation }) => {
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
+  const [showNotification, setShowNotification] = useState(false);
+  const [notificationData, setNotificationData] = useState(null);
+  const [inputFocused, setInputFocused] = useState(false);
   const flatListRef = useRef(null);
   const typingTimeoutRef = useRef(null);
+  const sendButtonScale = useRef(new Animated.Value(1)).current;
+  const inputBorderAnim = useRef(new Animated.Value(0)).current;
 
   // Debug info
   console.log('[CHAT] Screen initialized with params:', { chatId, participantId, itemId, participantName });
@@ -111,6 +118,16 @@ const ChatScreen = ({ route, navigation }) => {
 
           if (!exists) {
             updatedMessages.push(msgData.message);
+            
+            // Show notification for messages from other users
+            if (msgData.message.sender._id !== user.id) {
+              setNotificationData({
+                senderName: msgData.message.sender.name,
+                messageContent: msgData.message.content,
+                chatId: chat._id,
+              });
+              setShowNotification(true);
+            }
           }
         }
       });
@@ -329,8 +346,18 @@ const ChatScreen = ({ route, navigation }) => {
     const isLastMessage = index === messages.length - 1;
     const participants = Array.isArray(chat.participants) ? chat.participants : [];
     const otherParticipant = participants.find(p => p._id !== user.id);
-    const hasBeenRead = otherParticipant?.lastReadMessageId === item._id ||
+    
+    // Enhanced read status logic
+    const hasBeenRead = item.status === 'read' || 
+                       item.isRead ||
+                       otherParticipant?.lastReadMessageId === item._id ||
                        (chat.lastReadBy && chat.lastReadBy.includes(otherParticipant?._id));
+    
+    // Update message status for rendering
+    const messageWithStatus = {
+      ...item,
+      status: hasBeenRead ? 'read' : (item.status || 'sent')
+    };
 
     return (
       <View>
@@ -347,7 +374,7 @@ const ChatScreen = ({ route, navigation }) => {
           </View>
         )}
         <MessageBubble
-          message={item}
+          message={messageWithStatus}
           isMyMessage={isMyMessage}
           showStatus={isMyMessage && isLastMessage}
           hasBeenRead={hasBeenRead}
@@ -410,6 +437,23 @@ const ChatScreen = ({ route, navigation }) => {
 
   return (
     <SafeAreaView style={styles.container}>
+      {/* Message Notification */}
+      <MessageNotification
+        isVisible={showNotification}
+        senderName={notificationData?.senderName}
+        messageContent={notificationData?.messageContent}
+        onPress={() => {
+          // Scroll to bottom when notification is tapped
+          setTimeout(() => {
+            flatListRef.current?.scrollToEnd({ animated: true });
+          }, 100);
+        }}
+        onDismiss={() => {
+          setShowNotification(false);
+          setNotificationData(null);
+        }}
+      />
+      
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.chatContainer}
@@ -476,39 +520,90 @@ const ChatScreen = ({ route, navigation }) => {
         {/* Message Input */}
         <View style={styles.inputContainer}>
         <View style={styles.inputRow}>
-          <TextInput
-            style={styles.textInput}
-            value={message}
-            onChangeText={handleTyping}
-            placeholder="Type a message..."
-            placeholderTextColor="#BDC3C7"
-            multiline
-            maxLength={500}
-            returnKeyType="send"
-            onSubmitEditing={() => {
-              if (message.trim() && !sending) {
-                sendMessage();
-              }
-            }}
-            onBlur={() => {
-              // Stop typing when input loses focus
-              stopTyping();
-              if (typingTimeoutRef.current) {
-                clearTimeout(typingTimeoutRef.current);
-                typingTimeoutRef.current = null;
-              }
-            }}
-          />
+          <Animated.View style={[
+            styles.textInputContainer,
+            {
+              borderColor: inputBorderAnim.interpolate({
+                inputRange: [0, 1],
+                outputRange: ['#E9ECEF', '#957DAD']
+              })
+            }
+          ]}>
+            <TextInput
+              style={styles.textInput}
+              value={message}
+              onChangeText={handleTyping}
+              placeholder="Type a message..."
+              placeholderTextColor="#BDC3C7"
+              multiline
+              maxLength={500}
+              returnKeyType="send"
+              onSubmitEditing={() => {
+                if (message.trim() && !sending) {
+                  sendMessage();
+                }
+              }}
+              onFocus={() => {
+                setInputFocused(true);
+                Animated.timing(inputBorderAnim, {
+                  toValue: 1,
+                  duration: 200,
+                  useNativeDriver: false,
+                }).start();
+              }}
+              onBlur={() => {
+                setInputFocused(false);
+                Animated.timing(inputBorderAnim, {
+                  toValue: 0,
+                  duration: 200,
+                  useNativeDriver: false,
+                }).start();
+                // Stop typing when input loses focus
+                stopTyping();
+                if (typingTimeoutRef.current) {
+                  clearTimeout(typingTimeoutRef.current);
+                  typingTimeoutRef.current = null;
+                }
+              }}
+            />
+          </Animated.View>
           <TouchableOpacity
             style={[
               styles.sendButton,
-              (!message.trim() || sending) && styles.sendButtonDisabled
+              (!message.trim() || sending) && styles.sendButtonDisabled,
+              { transform: [{ scale: sendButtonScale }] }
             ]}
-            onPress={sendMessage}
+            onPress={() => {
+              // Animate button press
+              Animated.sequence([
+                Animated.timing(sendButtonScale, {
+                  toValue: 0.9,
+                  duration: 100,
+                  useNativeDriver: true,
+                }),
+                Animated.timing(sendButtonScale, {
+                  toValue: 1,
+                  duration: 100,
+                  useNativeDriver: true,
+                })
+              ]).start();
+              sendMessage();
+            }}
             disabled={!message.trim() || sending}
             activeOpacity={0.8}
             onPressIn={() => {
-              // Add subtle press animation if needed
+              Animated.timing(sendButtonScale, {
+                toValue: 0.95,
+                duration: 50,
+                useNativeDriver: true,
+              }).start();
+            }}
+            onPressOut={() => {
+              Animated.timing(sendButtonScale, {
+                toValue: 1,
+                duration: 50,
+                useNativeDriver: true,
+              }).start();
             }}
           >
             {sending ? (
@@ -584,7 +679,7 @@ const styles = StyleSheet.create({
   messagesContainer: {
     paddingHorizontal: 16,
     paddingVertical: 12,
-    paddingBottom: 20,
+    paddingBottom: 30,
   },
   dateContainer: {
     alignItems: 'center',
@@ -603,11 +698,11 @@ const styles = StyleSheet.create({
   inputContainer: {
     backgroundColor: 'white',
     paddingHorizontal: 12,
-    paddingVertical: 14,
-    paddingBottom: Platform.OS === 'ios' ? 24 : 18,
+    paddingVertical: 16,
+    paddingBottom: Platform.OS === 'ios' ? 34 : 24,
     borderTopWidth: 1,
     borderTopColor: '#E9ECEF',
-    marginBottom: 10,
+    marginBottom: 0,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     shadowOffset: { width: 0, height: -2 },
@@ -621,18 +716,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
     marginBottom: 8,
   },
-  textInput: {
+  textInputContainer: {
     flex: 1,
-    borderWidth: 1.5,
-    borderColor: '#E9ECEF',
+    borderWidth: 2,
     borderRadius: 25,
+    backgroundColor: '#F8F9FA',
+  },
+  textInput: {
     paddingHorizontal: 18,
     paddingVertical: 12,
     paddingTop: 12,
     minHeight: 42,
     maxHeight: 120,
     fontSize: 16,
-    backgroundColor: '#F8F9FA',
     color: '#2c3e50',
     textAlignVertical: 'center',
     fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
@@ -649,7 +745,6 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
     shadowRadius: 4,
-    transform: [{ scale: 1 }],
   },
   characterCount: {
     fontSize: 12,
