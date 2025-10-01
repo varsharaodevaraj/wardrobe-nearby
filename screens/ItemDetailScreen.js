@@ -5,13 +5,14 @@ import { Ionicons } from '@expo/vector-icons';
 import api from '../utils/api'; // Import our secure API client
 import { useAuth } from '../context/AuthContext'; // To check if the user is the owner
 import { useFollow } from '../context/FollowContext'; // For global follow management
+import { useRental } from '../context/RentalContext'; // For global rental management
 
 const ItemDetailScreen = ({ route, navigation }) => {
   const { item } = route.params;
   const { user } = useAuth(); // Get the current logged-in user
   const { isFollowing, toggleFollow, checkFollowStatus, loading: followLoading } = useFollow();
+  const { getRentalStatus, checkRentalStatus, submitRentalRequest, loading: rentalLoading } = useRental();
   const [loading, setLoading] = useState(false);
-  const [hasRequestedBefore, setHasRequestedBefore] = useState(false);
   const [checkingRequest, setCheckingRequest] = useState(true);
   const [imageError, setImageError] = useState(false);
   const [chatLoading, setChatLoading] = useState(false);
@@ -38,12 +39,8 @@ const ItemDetailScreen = ({ route, navigation }) => {
       }
       
       try {
-        // Check existing rental request
-        const requests = await api('/rentals/outgoing?status=pending');
-        const hasRequested = requests.some(
-          request => request.item._id === item._id
-        );
-        setHasRequestedBefore(hasRequested);
+        // Check existing rental request using context
+        await checkRentalStatus(item._id);
 
         // Check follow status using global context
         if (itemOwnerId) {
@@ -51,7 +48,6 @@ const ItemDetailScreen = ({ route, navigation }) => {
         }
       } catch (error) {
         console.error('[ITEM_DETAIL] Error initializing screen:', error);
-        setHasRequestedBefore(false);
       } finally {
         setCheckingRequest(false);
       }
@@ -62,7 +58,7 @@ const ItemDetailScreen = ({ route, navigation }) => {
     } else {
       setCheckingRequest(false);
     }
-  }, [item._id, isOwner, checkFollowStatus]);
+  }, [item._id, isOwner, checkFollowStatus, checkRentalStatus]);
 
   const handleRentNow = async () => {
     console.log('🎯 [REGULAR] handleRentNow called');
@@ -92,59 +88,50 @@ const ItemDetailScreen = ({ route, navigation }) => {
           text: "Send Request", 
           onPress: () => {
             console.log('🎯 [REGULAR] Alert onPress called, submitting request');
-            submitRentalRequest("");
+            handleSubmitRequest("");
           }
         }
       ]
     );
   };
 
-  const submitRentalRequest = async (customMessage = "") => {
-    console.log('🚀 [REGULAR] submitRentalRequest called with message:', customMessage);
+  const handleSubmitRequest = async (customMessage = "") => {
+    console.log('🚀 [REGULAR] handleSubmitRequest called with message:', customMessage);
     setLoading(true);
+    
     try {
-      console.log('🚀 [REGULAR] Making API call to /rentals/request');
-      // Use our secure API client to send the request
-      const response = await api('/rentals/request', 'POST', { 
-        itemId: item._id,
-        customMessage: customMessage.trim()
-      });
-      console.log('🚀 [REGULAR] API response received:', response);
+      const result = await submitRentalRequest(item._id, customMessage);
       
-      // Update local state to show request has been sent
-      setHasRequestedBefore(true);
-      
-      const requestType = item.listingType === 'sell' ? 'purchase request' : 'rental request';
-      Alert.alert(
-        "Request Sent! 🎉", 
-        `Your ${requestType} for "${item.name}" has been sent to the owner and a message has been added to your chat. You'll be notified when they respond.`,
-        [
-          { text: "Go to Chat", onPress: () => {
-            const ownerName = typeof item.user === 'object' ? item.user.name : 'Owner';
-            navigation.navigate('Chat', {
-              participantId: itemOwnerId,
-              itemId: item._id,
-              participantName: ownerName,
-              itemName: item.name
-            });
-          }},
-          { text: "OK", onPress: () => navigation.goBack() }
-        ]
-      );
+      if (result.success) {
+        const requestType = item.listingType === 'sell' ? 'purchase request' : 'rental request';
+        Alert.alert(
+          "Request Sent! 🎉", 
+          `Your ${requestType} for "${item.name}" has been sent to the owner and a message has been added to your chat. You'll be notified when they respond.`,
+          [
+            { text: "Go to Chat", onPress: () => {
+              const ownerName = typeof item.user === 'object' ? item.user.name : 'Owner';
+              navigation.navigate('Chat', {
+                participantId: itemOwnerId,
+                itemId: item._id,
+                participantName: ownerName,
+                itemName: item.name
+              });
+            }},
+            { text: "OK", onPress: () => navigation.goBack() }
+          ]
+        );
+      } else {
+        // Handle error from context
+        if (result.message.includes('already sent a request')) {
+          const requestType = item.listingType === 'sell' ? 'purchase request' : 'rental request';
+          Alert.alert("Already Requested", `You have already sent a ${requestType} for this item. Please wait for the owner to respond.`);
+        } else {
+          Alert.alert("Request Failed", result.message);
+        }
+      }
     } catch (error) {
       console.error("[RENTAL_REQUEST] Error:", error);
-      
-      // Handle specific error cases
-      if (error.message.includes('already sent a request') || error.message.includes('alreadyRequested')) {
-        const requestType = item.listingType === 'sell' ? 'purchase request' : 'rental request';
-        Alert.alert("Already Requested", `You have already sent a ${requestType} for this item. Please wait for the owner to respond.`);
-        setHasRequestedBefore(true);
-      } else if (error.message.includes('own item') || error.message.includes('isOwnItem')) {
-        // This should not happen since UI prevents it, but handle gracefully
-        Alert.alert("Info", "This is your own item. You can manage it from your profile.");
-      } else {
-        Alert.alert("Request Failed", error.message || "Could not submit your request. Please try again.");
-      }
+      Alert.alert("Request Failed", "Could not submit your request. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -269,7 +256,7 @@ const ItemDetailScreen = ({ route, navigation }) => {
               <View style={styles.rentButton}>
                 <ActivityIndicator color="#4A235A" />
               </View>
-            ) : hasRequestedBefore ? (
+            ) : getRentalStatus(item._id) ? (
               <TouchableOpacity style={styles.requestedButton} disabled={true}>
                 <Text style={styles.requestedButtonText}>✓ Request Sent</Text>
               </TouchableOpacity>

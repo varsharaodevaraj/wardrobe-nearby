@@ -1,5 +1,5 @@
 import * as SecureStore from 'expo-secure-store';
-import { API_URL } from '../config';
+import { API_URL } from '../config/apiConfig';
 
 console.log('[API] Using dynamic API URL:', API_URL);
 
@@ -71,7 +71,18 @@ const api = async (endpoint, method = 'GET', body = null) => {
 
     return data;
   } catch (error) {
-    console.error(`API Error on endpoint ${endpoint}:`, error);
+    console.error(`🚨 API Error on endpoint ${endpoint}:`, error);
+    
+    // Enhanced error handling for network issues
+    if (error.message?.includes('Network request failed')) {
+      console.error(' NETWORK_ERROR] Connection failed to:', `${API_URL}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`);
+      console.error(' [NETWORK_ERROR] Possible solutions:');
+      console.error('  1. Check if server is running');
+      console.error('  2. Verify IP address in .env.local');
+      console.error('  3. Try restarting server and app');
+      console.error('  4. Check network connectivity');
+    }
+    
     throw error;
   }
 };

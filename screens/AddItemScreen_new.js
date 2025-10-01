@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import StyledTextInput from '../components/StyledTextInput';
 import { useAuth } from '../context/AuthContext';
-import { API_URL } from '../config';
+import { API_URL } from '../config/apiConfig';
 
 const AddItemScreen = ({ navigation }) => {
   const [image, setImage] = useState(null);
