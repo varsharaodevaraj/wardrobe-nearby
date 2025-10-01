@@ -82,8 +82,6 @@ export const AuthProvider = ({ children }) => {
     setUser(null);
   };
 
-
-
   // If the app is still checking for a token, we can show a loading screen
   if (loading) {
     // You can replace this with a proper splash screen component later
