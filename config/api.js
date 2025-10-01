@@ -7,7 +7,7 @@ const getApiUrl = () => {
       ? Constants.expoConfig.hostUri.split(':').shift()
       : 'localhost';
 
-    return `http://${debuggerHost}:3000/api`; // ✅ always includes /api
+    return `http://${debuggerHost}:3000/api`;
   } else {
     return 'https://your-production-api.com/api';
   }
