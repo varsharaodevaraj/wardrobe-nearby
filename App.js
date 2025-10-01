@@ -8,6 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { FollowProvider } from "./context/FollowContext";
 import { RentalProvider } from "./context/RentalContext";
+import { ChatProvider } from "./context/ChatContext";
 import ErrorBoundary from "./components/ErrorBoundary";
 
 // Import all screens
@@ -128,7 +129,9 @@ export default function App() {
         <AuthProvider>
           <FollowProvider>
             <RentalProvider>
-              <AppNavigator />
+              <ChatProvider>
+                <AppNavigator />
+              </ChatProvider>
             </RentalProvider>
           </FollowProvider>
         </AuthProvider>

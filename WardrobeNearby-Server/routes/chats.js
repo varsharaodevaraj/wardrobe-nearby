@@ -94,11 +94,11 @@ router.post('/', auth, async (req, res) => {
 });
 
 // @route   POST /api/chats/:chatId/messages
-// @desc    Send a message in a chat
+// @desc    Send a message in a chat (WhatsApp-like with status tracking)
 // @access  Private
 router.post('/:chatId/messages', auth, async (req, res) => {
   try {
-    const { content } = req.body;
+    const { content, tempId } = req.body;
 
     if (!content || content.trim().length === 0) {
       return res.status(400).json({ message: 'Message content is required' });
@@ -115,33 +115,61 @@ router.post('/:chatId/messages', auth, async (req, res) => {
       return res.status(403).json({ message: 'Not authorized to send messages in this chat' });
     }
 
-    // Add message to chat
+    // Create enhanced message with WhatsApp-like features
     const newMessage = {
       sender: req.user.id,
       content: content.trim(),
       timestamp: new Date(),
+      status: 'sent', // Message successfully sent to server
+      tempId: tempId, // For client-side optimistic updates
+      messageType: 'text',
     };
 
     chat.messages.push(newMessage);
     chat.lastMessage = new Date();
 
+    // Update unread count for other participants
+    const otherParticipants = chat.participants.filter(p => p.toString() !== req.user.id);
+    otherParticipants.forEach(participantId => {
+      let unreadEntry = chat.unreadCount.find(u => u.user.toString() === participantId.toString());
+      if (unreadEntry) {
+        unreadEntry.count += 1;
+      } else {
+        chat.unreadCount.push({ user: participantId, count: 1 });
+      }
+    });
+
+    // Clear typing indicator for sender
+    chat.typingUsers = chat.typingUsers.filter(tu => tu.user.toString() !== req.user.id);
+
     await chat.save();
 
-    // Return the populated chat
+    // Return the populated chat with the new message
     const populatedChat = await Chat.findById(chat._id)
       .populate('participants', 'name profileImage')
       .populate('relatedItem', 'name imageUrl')
       .populate('messages.sender', 'name');
 
-    res.json(populatedChat);
+    // Get the sent message with populated sender info
+    const sentMessage = populatedChat.messages[populatedChat.messages.length - 1];
+    
+    res.json({
+      success: true,
+      message: sentMessage,
+      chat: populatedChat
+    });
   } catch (error) {
     console.error('Error sending message:', error);
-    res.status(500).send('Server Error');
+    res.status(500).json({ 
+      success: false, 
+      message: 'Server Error',
+      error: error.message 
+    });
   }
 });
 
 // @route   PUT /api/chats/:chatId/mark-read
-// @desc    Mark messages as read
+// @desc    Mark messages as read (WhatsApp-like read receipts)
 // @access  Private
 router.put('/:chatId/mark-read', auth, async (req, res) => {
   try {
@@ -156,18 +184,111 @@ router.put('/:chatId/mark-read', auth, async (req, res) => {
       return res.status(403).json({ message: 'Not authorized' });
     }
 
+    const now = new Date();
+    let markedCount = 0;
+
     // Mark messages as read (only messages not sent by current user)
     chat.messages.forEach(message => {
-      if (message.sender.toString() !== req.user.id) {
+      if (message.sender.toString() !== req.user.id && !message.isRead) {
         message.isRead = true;
+        message.readAt = now;
+        message.status = 'read';
+        markedCount++;
       }
     });
 
+    // Reset unread count for current user
+    const userUnreadEntry = chat.unreadCount.find(u => u.user.toString() === req.user.id);
+    if (userUnreadEntry) {
+      userUnreadEntry.count = 0;
+    }
+
     await chat.save();
 
-    res.json({ message: 'Messages marked as read' });
+    res.json({ 
+      success: true,
+      message: `${markedCount} messages marked as read`,
+      markedCount 
+    });
   } catch (error) {
     console.error('Error marking messages as read:', error);
+    res.status(500).send('Server Error');
+  }
+});
+
+// @route   POST /api/chats/:chatId/typing
+// @desc    Set typing indicator
+// @access  Private
+router.post('/:chatId/typing', auth, async (req, res) => {
+  try {
+    const { isTyping } = req.body;
+    const chat = await Chat.findById(req.params.chatId);
+
+    if (!chat) {
+      return res.status(404).json({ message: 'Chat not found' });
+    }
+
+    // Check if user is participant
+    if (!chat.participants.includes(req.user.id)) {
+      return res.status(403).json({ message: 'Not authorized' });
+    }
+
+    if (isTyping) {
+      // Add or update typing indicator
+      const existingTyping = chat.typingUsers.find(tu => tu.user.toString() === req.user.id);
+      if (existingTyping) {
+        existingTyping.lastTyping = new Date();
+      } else {
+        chat.typingUsers.push({
+          user: req.user.id,
+          lastTyping: new Date()
+        });
+      }
+    } else {
+      // Remove typing indicator
+      chat.typingUsers = chat.typingUsers.filter(tu => tu.user.toString() !== req.user.id);
+    }
+
+    await chat.save();
+
+    // Get current typing users (excluding current user)
+    const typingUsers = chat.typingUsers
+      .filter(tu => tu.user.toString() !== req.user.id)
+      .filter(tu => (new Date() - tu.lastTyping) < 10000); // 10 second timeout
+
+    res.json({ 
+      success: true,
+      typingUsers: typingUsers.map(tu => tu.user)
+    });
+  } catch (error) {
+    console.error('Error updating typing status:', error);
+    res.status(500).send('Server Error');
+  }
+});
+
+// @route   GET /api/chats/:chatId/typing
+// @desc    Get current typing users
+// @access  Private
+router.get('/:chatId/typing', auth, async (req, res) => {
+  try {
+    const chat = await Chat.findById(req.params.chatId)
+      .populate('typingUsers.user', 'name');
+
+    if (!chat) {
+      return res.status(404).json({ message: 'Chat not found' });
+    }
+
+    // Filter out expired typing indicators (older than 10 seconds)
+    const activeTypingUsers = chat.typingUsers
+      .filter(tu => tu.user._id.toString() !== req.user.id)
+      .filter(tu => (new Date() - tu.lastTyping) < 10000);
+
+    res.json({
+      success: true,
+      typingUsers: activeTypingUsers.map(tu => tu.user)
+    });
+  } catch (error) {
+    console.error('Error getting typing status:', error);
     res.status(500).send('Server Error');
   }
 });
