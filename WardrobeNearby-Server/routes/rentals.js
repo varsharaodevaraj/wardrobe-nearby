@@ -116,18 +116,41 @@ router.get('/incoming', auth, async (req, res) => {
 router.put('/:id/status', auth, async (req, res) => {
     try {
         const { status } = req.body;
-        if (status !== 'accepted' && status !== 'declined') {
+        const validStatuses = ['accepted', 'declined', 'completed'];
+        
+        if (!validStatuses.includes(status)) {
             return res.status(400).json({ message: 'Invalid status update.' });
         }
+        
         const rental = await Rental.findById(req.params.id);
         if (!rental) return res.status(404).json({ message: 'Rental request not found.' });
-        if (rental.owner.toString() !== req.user.id) {
-            return res.status(401).json({ message: 'User not authorized.' });
+        
+        // Check authorization based on status update
+        if (status === 'accepted' || status === 'declined') {
+            // Only owner can accept/decline requests
+            if (rental.owner.toString() !== req.user.id) {
+                return res.status(401).json({ message: 'Only the item owner can accept or decline requests.' });
+            }
+            // Can only update pending requests to accepted/declined
+            if (rental.status !== 'pending') {
+                return res.status(400).json({ message: 'Only pending requests can be accepted or declined.' });
+            }
+        } else if (status === 'completed') {
+            // Both owner and borrower can mark as completed
+            if (rental.owner.toString() !== req.user.id && rental.borrower.toString() !== req.user.id) {
+                return res.status(401).json({ message: 'Only the item owner or borrower can mark the rental as completed.' });
+            }
+            // Can only complete accepted rentals
+            if (rental.status !== 'accepted') {
+                return res.status(400).json({ message: 'Only accepted rentals can be marked as completed.' });
+            }
         }
+        
         rental.status = status;
         await rental.save();
         res.json({ message: `Request has been ${status}.`, rental });
     } catch (error) {
+        console.error('Error updating rental status:', error);
         res.status(500).send('Server Error');
     }
 });

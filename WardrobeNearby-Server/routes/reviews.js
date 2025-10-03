@@ -3,6 +3,7 @@ const router = express.Router();
 const Review = require('../models/Review');
 const Item = require('../models/Item');
 const User = require('../models/User');
+const Rental = require('../models/Rental');
 const auth = require('../middleware/auth');
 
 // @route   GET /api/reviews/item/:itemId
@@ -96,6 +97,19 @@ router.post('/', auth, async (req, res) => {
     if (item.user.toString() === req.user.id) {
       return res.status(400).json({ 
         message: 'You cannot review your own item' 
+      });
+    }
+
+    // Check if user has an accepted request for this item
+    const acceptedRental = await Rental.findOne({
+      item: itemId,
+      borrower: req.user.id,
+      status: 'accepted'
+    });
+
+    if (!acceptedRental) {
+      return res.status(403).json({ 
+        message: 'You can only review items after your request has been accepted by the owner' 
       });
     }
 
@@ -285,6 +299,55 @@ router.post('/:reviewId/helpful', auth, async (req, res) => {
     });
   } catch (error) {
     console.error('Error marking review as helpful:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// @route   GET /api/reviews/can-review/:itemId
+// @desc    Check if user can write a review for an item
+// @access  Private
+router.get('/can-review/:itemId', auth, async (req, res) => {
+  try {
+    const { itemId } = req.params;
+    const userId = req.user.id;
+
+    // Check if user has already written a review
+    const existingReview = await Review.findOne({
+      item: itemId,
+      reviewer: userId
+    });
+
+    if (existingReview) {
+      return res.json({
+        canReview: false,
+        reason: 'already_reviewed',
+        message: 'You have already reviewed this item'
+      });
+    }
+
+    // Check if user has an accepted rental/purchase request for this item
+    const acceptedRental = await Rental.findOne({
+      item: itemId,
+      borrower: userId,
+      status: 'accepted'
+    });
+
+    if (!acceptedRental) {
+      return res.json({
+        canReview: false,
+        reason: 'no_accepted_request',
+        message: 'You can only review items after your request has been accepted by the owner'
+      });
+    }
+
+    // User can write a review
+    res.json({
+      canReview: true,
+      message: 'You can write a review for this item'
+    });
+
+  } catch (error) {
+    console.error('Error checking review permission:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });

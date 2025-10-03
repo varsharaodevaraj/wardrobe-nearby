@@ -25,6 +25,7 @@ import StoryViewerScreen from "./screens/StoryViewerScreen";
 import EditItemScreen from "./screens/EditItemScreen";
 import ChatListScreen from "./screens/ChatListScreen";
 import ChatScreen from "./screens/ChatScreen";
+import MyRentalsScreen from "./screens/MyRentalsScreen";
 
 // Enhanced screens (optional - for testing new features)
 import AddItemScreenEnhanced from "./screens/AddItemScreenEnhanced";
@@ -48,6 +49,7 @@ function MainFlow() {
       <MainStack.Screen name="AddStory" component={AddStoryScreen} options={{ presentation: 'modal' }} />
       <MainStack.Screen name="StoryViewer" component={StoryViewerScreen} options={{ presentation: 'modal' }} />
       <MainStack.Screen name="Chat" component={ChatScreen} />
+      <MainStack.Screen name="MyRentals" component={MyRentalsScreen} />
     </MainStack.Navigator>
   );
 }

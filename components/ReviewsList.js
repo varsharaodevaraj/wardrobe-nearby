@@ -14,7 +14,8 @@ const ReviewsList = ({
   itemId, 
   onWriteReview = null,
   onEditReview = null,
-  refreshTrigger = 0 
+  refreshTrigger = 0,
+  highlightWriteReview = false // New prop to highlight the write review section
 }) => {
   const { user } = useAuth();
   const [reviews, setReviews] = useState([]);
@@ -62,13 +63,34 @@ const ReviewsList = ({
     }
   }, [itemId, sortBy]);
 
+  // Check review permission
+  const checkReviewPermission = useCallback(async () => {
+    if (!user?.id) {
+      setCanWriteReview(false);
+      setReviewPermissionMessage('Please log in to write a review');
+      return;
+    }
+
+    try {
+      const response = await api(`/reviews/can-review/${itemId}`);
+      setCanWriteReview(response.canReview);
+      setReviewPermissionMessage(response.message);
+    } catch (error) {
+      console.error('Error checking review permission:', error);
+      setCanWriteReview(false);
+      setReviewPermissionMessage('Unable to check review permission');
+    }
+  }, [user?.id, itemId]);
+
   // Fetch reviews on component mount and when dependencies change
   useEffect(() => {
     fetchReviews(1);
-  }, [fetchReviews, refreshTrigger]);
+    checkReviewPermission();
+  }, [fetchReviews, checkReviewPermission, refreshTrigger]);
 
   const handleRefresh = () => {
     fetchReviews(1, true);
+    checkReviewPermission();
   };
 
   const handleLoadMore = () => {
@@ -106,6 +128,7 @@ const ReviewsList = ({
       // Remove review from list
       setReviews(prev => prev.filter(review => review._id !== reviewId));
       setTotalReviews(prev => prev - 1);
+      checkReviewPermission(); // Refresh permission after deleting review
       
       Alert.alert('Success', 'Review deleted successfully');
     } catch (error) {
@@ -131,12 +154,12 @@ const ReviewsList = ({
   const addReviewToList = (newReview) => {
     setReviews(prev => [newReview, ...prev]);
     setTotalReviews(prev => prev + 1);
+    checkReviewPermission(); // Refresh permission after adding review
   };
 
   // Check if current user can write a review
-  const canWriteReview = user && !reviews.some(review => 
-    review.reviewer._id === user.id
-  );
+  const [canWriteReview, setCanWriteReview] = useState(false);
+  const [reviewPermissionMessage, setReviewPermissionMessage] = useState('');
 
   // Removed renderReviewItem since we're now using direct mapping
 
@@ -176,15 +199,35 @@ const ReviewsList = ({
         </Text>
       </View>
 
-      {/* Write Review Button */}
-      {canWriteReview && onWriteReview && (
-        <TouchableOpacity 
-          style={styles.writeReviewButton}
-          onPress={onWriteReview}
-        >
-          <Ionicons name="create-outline" size={18} color="white" />
-          <Text style={styles.writeReviewText}>Write Review</Text>
-        </TouchableOpacity>
+      {/* Write Review Section */}
+      {user && (
+        <View style={styles.reviewPermissionSection}>
+          {canWriteReview ? (
+            onWriteReview && (
+              <TouchableOpacity 
+                style={[
+                  styles.writeReviewButton,
+                  highlightWriteReview && styles.writeReviewButtonHighlight
+                ]}
+                onPress={onWriteReview}
+              >
+                <Ionicons name="create-outline" size={18} color="white" />
+                <Text style={styles.writeReviewText}>Write Review</Text>
+              </TouchableOpacity>
+            )
+          ) : (
+            <View style={styles.permissionMessageContainer}>
+              <Ionicons 
+                name="information-circle-outline" 
+                size={16} 
+                color="#7f8c8d" 
+              />
+              <Text style={styles.permissionMessageText}>
+                {reviewPermissionMessage}
+              </Text>
+            </View>
+          )}
+        </View>
       )}
 
       {/* Sort Options */}
@@ -441,6 +484,33 @@ const styles = StyleSheet.create({
     color: '#957DAD',
     fontSize: 16,
     fontWeight: '600',
+  },
+  reviewPermissionSection: {
+    marginVertical: 12,
+  },
+  permissionMessageContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    backgroundColor: '#f8f9fa',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#e9ecef',
+  },
+  permissionMessageText: {
+    marginLeft: 8,
+    fontSize: 14,
+    color: '#7f8c8d',
+    flex: 1,
+  },
+  writeReviewButtonHighlight: {
+    backgroundColor: '#E8A87C', // Orange highlight color
+    shadowColor: '#E8A87C',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
+    transform: [{ scale: 1.02 }],
   },
 });
 

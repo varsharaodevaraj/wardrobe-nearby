@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   View, Text, StyleSheet, ScrollView, TouchableOpacity, 
   Alert, ActivityIndicator, Dimensions, Switch, Image, Modal 
@@ -16,7 +16,7 @@ import StarRating from '../components/StarRating';
 const { width } = Dimensions.get('window');
 
 const ItemDetailScreenEnhanced = ({ route, navigation }) => {
-  const { item } = route.params;
+  const { item, focusReview = false } = route.params;
   const { user } = useAuth();
   const { isFollowing, toggleFollow, checkFollowStatus, loading: followLoading } = useFollow();
   const { getRentalStatus, checkRentalStatus, submitRentalRequest, loading: rentalLoading } = useRental();
@@ -30,6 +30,8 @@ const ItemDetailScreenEnhanced = ({ route, navigation }) => {
   const [showReviewForm, setShowReviewForm] = useState(false);
   const [editingReview, setEditingReview] = useState(null);
   const [reviewsRefreshTrigger, setReviewsRefreshTrigger] = useState(0);
+  const scrollViewRef = useRef(null);
+  const reviewsSectionRef = useRef(null);
   
   // Handle both old and new image formats - use images array if available, fallback to single imageUrl
   const imageGallery = itemData.images && itemData.images.length > 0 
@@ -70,6 +72,19 @@ const ItemDetailScreenEnhanced = ({ route, navigation }) => {
       setCheckingRequest(false);
     }
   }, [item._id, isOwner, checkFollowStatus, checkRentalStatus]);
+
+  // Auto-scroll to reviews section when focusReview is true
+  useEffect(() => {
+    if (focusReview && reviewsSectionRef.current && scrollViewRef.current) {
+      const timer = setTimeout(() => {
+        reviewsSectionRef.current.measure((x, y, width, height, pageX, pageY) => {
+          scrollViewRef.current.scrollTo({ y: pageY - 100, animated: true });
+        });
+      }, 500); // Wait for component to render
+
+      return () => clearTimeout(timer);
+    }
+  }, [focusReview]);
 
   const handleRentNow = async () => {
     console.log('🎯 [ENHANCED] handleRentNow called');
@@ -249,7 +264,7 @@ const ItemDetailScreenEnhanced = ({ route, navigation }) => {
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-      <ScrollView>
+      <ScrollView ref={scrollViewRef}>
         {/* Enhanced Image Section with Slideshow */}
         <View style={styles.imageSection}>
           <ScrollView
@@ -423,7 +438,7 @@ const ItemDetailScreenEnhanced = ({ route, navigation }) => {
           </View>
 
           {/* Reviews Section */}
-          <View style={styles.reviewsSection}>
+          <View ref={reviewsSectionRef} style={styles.reviewsSection}>
             <View style={styles.sectionHeader}>
               <Ionicons name="chatbubbles-outline" size={24} color="#957DAD" />
               <Text style={styles.sectionTitle}>Reviews & Ratings</Text>
@@ -437,6 +452,7 @@ const ItemDetailScreenEnhanced = ({ route, navigation }) => {
                 setShowReviewForm(true);
               }}
               refreshTrigger={reviewsRefreshTrigger}
+              highlightWriteReview={focusReview}
             />
           </View>
         </View>

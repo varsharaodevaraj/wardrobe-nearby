@@ -360,6 +360,17 @@ const ProfileScreen = () => {
           <Text style={styles.userEmail}>{user?.email}</Text>
         </View>
 
+        {/* Quick Actions */}
+        <View style={styles.quickActionsContainer}>
+          <TouchableOpacity 
+            style={styles.quickActionButton}
+            onPress={() => navigation.navigate('MyRentals')}
+          >
+            <Ionicons name="list-circle-outline" size={24} color="#957DAD" />
+            <Text style={styles.quickActionText}>Manage Rentals</Text>
+          </TouchableOpacity>
+        </View>
+
         {loading ? (
           <ActivityIndicator
             size="large"
@@ -430,6 +441,34 @@ const styles = StyleSheet.create({
   avatarText: { color: "#FFFFFF", fontSize: 32, fontWeight: "bold" },
   userName: { fontSize: 22, fontWeight: "bold", color: "#2c3e50" },
   userEmail: { fontSize: 16, color: "#7f8c8d" },
+  quickActionsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    paddingVertical: 15,
+    backgroundColor: '#FFFFFF',
+    marginTop: 10,
+    borderRadius: 12,
+    marginHorizontal: 15,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  quickActionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 25,
+    backgroundColor: '#F8F9FA',
+  },
+  quickActionText: {
+    marginLeft: 8,
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#2c3e50',
+  },
   section: {
     marginTop: 20,
     backgroundColor: "#FFFFFF",
