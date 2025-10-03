@@ -15,7 +15,8 @@ const ReviewsList = ({
   onWriteReview = null,
   onEditReview = null,
   refreshTrigger = 0,
-  highlightWriteReview = false // New prop to highlight the write review section
+  highlightWriteReview = false, // New prop to highlight the write review section
+  isOwner = false // New prop to check if current user owns the item
 }) => {
   const { user } = useAuth();
   const [reviews, setReviews] = useState([]);
@@ -71,6 +72,13 @@ const ReviewsList = ({
       return;
     }
 
+    // If user owns the item, they cannot write a review
+    if (isOwner) {
+      setCanWriteReview(false);
+      setReviewPermissionMessage('You cannot review your own item');
+      return;
+    }
+
     try {
       const response = await api(`/reviews/can-review/${itemId}`);
       setCanWriteReview(response.canReview);
@@ -80,7 +88,7 @@ const ReviewsList = ({
       setCanWriteReview(false);
       setReviewPermissionMessage('Unable to check review permission');
     }
-  }, [user?.id, itemId]);
+  }, [user?.id, itemId, isOwner]);
 
   // Fetch reviews on component mount and when dependencies change
   useEffect(() => {

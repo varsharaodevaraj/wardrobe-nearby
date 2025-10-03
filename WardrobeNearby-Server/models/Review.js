@@ -104,4 +104,11 @@ ReviewSchema.post('findOneAndDelete', async function(doc) {
   }
 });
 
+// Also handle deleteOne and deleteMany methods
+ReviewSchema.post('deleteOne', { document: true, query: false }, async function(doc) {
+  if (doc) {
+    await doc.constructor.updateItemRating(doc.item);
+  }
+});
+
 module.exports = mongoose.model('Review', ReviewSchema);

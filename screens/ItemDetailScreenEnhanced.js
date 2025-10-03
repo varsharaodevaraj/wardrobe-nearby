@@ -453,6 +453,7 @@ const ItemDetailScreenEnhanced = ({ route, navigation }) => {
               }}
               refreshTrigger={reviewsRefreshTrigger}
               highlightWriteReview={focusReview}
+              isOwner={isOwner}
             />
           </View>
         </View>

@@ -228,8 +228,11 @@ router.delete('/:reviewId', auth, async (req, res) => {
       });
     }
 
-    // Delete the review
-    await Review.findByIdAndDelete(reviewId);
+    // Store the item ID to update rating after deletion
+    const itemId = review.item;
+
+    // Delete the review using findOneAndDelete to trigger middleware
+    await Review.findOneAndDelete({ _id: reviewId });
 
     res.json({
       message: 'Review deleted successfully'
@@ -310,6 +313,21 @@ router.get('/can-review/:itemId', auth, async (req, res) => {
   try {
     const { itemId } = req.params;
     const userId = req.user.id;
+
+    // Check if item exists and get item owner
+    const item = await Item.findById(itemId);
+    if (!item) {
+      return res.status(404).json({ message: 'Item not found' });
+    }
+
+    // Check if user is the item owner
+    if (item.user.toString() === userId) {
+      return res.json({
+        canReview: false,
+        reason: 'own_item',
+        message: 'You cannot review your own item'
+      });
+    }
 
     // Check if user has already written a review
     const existingReview = await Review.findOne({

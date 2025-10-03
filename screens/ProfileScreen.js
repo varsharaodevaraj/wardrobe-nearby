@@ -18,43 +18,89 @@ import api from "../utils/api";
 
 // --- Internal components for each section to keep the code clean ---
 
-const FollowersSection = ({ followers, following }) => (
-  <View style={styles.section}>
-    <Text style={styles.sectionTitle}>Social Connections</Text>
-    <View style={styles.socialStats}>
-      <View style={styles.socialStatItem}>
-        <Text style={styles.socialStatNumber}>{followers.length}</Text>
-        <Text style={styles.socialStatLabel}>Followers</Text>
+const FollowersSection = ({ followers, following }) => {
+  const [showFollowers, setShowFollowers] = useState(false);
+  const [showFollowing, setShowFollowing] = useState(false);
+
+  return (
+    <View style={styles.section}>
+      <Text style={styles.sectionTitle}>Social Connections</Text>
+      <View style={styles.socialStats}>
+        <TouchableOpacity 
+          style={styles.socialStatItem}
+          onPress={() => setShowFollowers(!showFollowers)}
+        >
+          <Text style={styles.socialStatNumber}>{followers.length}</Text>
+          <Text style={styles.socialStatLabel}>Followers</Text>
+          {followers.length > 0 && (
+            <Ionicons 
+              name={showFollowers ? "chevron-up" : "chevron-down"} 
+              size={16} 
+              color="#7f8c8d" 
+            />
+          )}
+        </TouchableOpacity>
+        <View style={styles.socialStatDivider} />
+        <TouchableOpacity 
+          style={styles.socialStatItem}
+          onPress={() => setShowFollowing(!showFollowing)}
+        >
+          <Text style={styles.socialStatNumber}>{following.length}</Text>
+          <Text style={styles.socialStatLabel}>Following</Text>
+          {following.length > 0 && (
+            <Ionicons 
+              name={showFollowing ? "chevron-up" : "chevron-down"} 
+              size={16} 
+              color="#7f8c8d" 
+            />
+          )}
+        </TouchableOpacity>
       </View>
-      <View style={styles.socialStatDivider} />
-      <View style={styles.socialStatItem}>
-        <Text style={styles.socialStatNumber}>{following.length}</Text>
-        <Text style={styles.socialStatLabel}>Following</Text>
-      </View>
-    </View>
-    
-    {followers.length > 0 && (
-      <View style={styles.followersContainer}>
-        <Text style={styles.followersTitle}>Your Followers:</Text>
-        {followers.slice(0, 5).map((follower) => (
-          <View key={follower._id} style={styles.followerItem}>
-            <View style={styles.followerAvatar}>
-              <Text style={styles.followerInitial}>
-                {follower.name ? follower.name.charAt(0).toUpperCase() : 'U'}
-              </Text>
+      
+      {showFollowers && followers.length > 0 && (
+        <View style={styles.followersContainer}>
+          <Text style={styles.followersTitle}>Your Followers:</Text>
+          {followers.slice(0, 10).map((follower) => (
+            <View key={follower._id} style={styles.followerItem}>
+              <View style={styles.followerAvatar}>
+                <Text style={styles.followerInitial}>
+                  {follower.name ? follower.name.charAt(0).toUpperCase() : 'U'}
+                </Text>
+              </View>
+              <Text style={styles.followerName}>{follower.name || 'Unknown User'}</Text>
             </View>
-            <Text style={styles.followerName}>{follower.name || 'Unknown User'}</Text>
-          </View>
-        ))}
-        {followers.length > 5 && (
-          <Text style={styles.moreFollowers}>
-            +{followers.length - 5} more followers
-          </Text>
-        )}
-      </View>
-    )}
-  </View>
-);
+          ))}
+          {followers.length > 10 && (
+            <Text style={styles.moreFollowers}>
+              +{followers.length - 10} more followers
+            </Text>
+          )}
+        </View>
+      )}
+
+      {showFollowing && following.length > 0 && (
+        <View style={styles.followersContainer}>
+          <Text style={styles.followersTitle}>Following:</Text>
+          {following.slice(0, 10).map((follow) => (
+            <View key={follow._id} style={styles.followerItem}>
+              <View style={styles.followerAvatar}>
+                <Text style={styles.followerInitial}>
+                  {follow.name ? follow.name.charAt(0).toUpperCase() : 'U'}
+                </Text>
+              </View>
+              <Text style={styles.followerName}>{follow.name || 'Unknown User'}</Text>
+            </View>
+          ))}
+          {following.length > 10 && (
+            <Text style={styles.moreFollowers}>
+              +{following.length - 10} more users
+            </Text>
+          )}
+        </View>
+      )}
+    </View>
+  );
+};
 
 const MyRentalsSection = ({ rentals, onContact }) => (
   <View style={styles.section}>
@@ -565,6 +611,9 @@ const styles = StyleSheet.create({
   socialStatItem: {
     alignItems: 'center',
     flex: 1,
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+    borderRadius: 8,
   },
   socialStatNumber: {
     fontSize: 24,
