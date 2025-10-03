@@ -4,6 +4,7 @@ import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFollow } from '../context/FollowContext';
 import { useAuth } from '../context/AuthContext';
+import StarRating from './StarRating';
 
 // We receive 'item' as a prop.
 const ItemCard = React.memo(({ item }) => {
@@ -84,6 +85,21 @@ const ItemCard = React.memo(({ item }) => {
             )}
           </View>
         </View>
+
+        {/* Rating Display */}
+        {item.totalReviews > 0 && (
+          <View style={styles.ratingContainer}>
+            <StarRating 
+              rating={Math.round(item.averageRating)} 
+              size={14} 
+              disabled={true}
+              color="#FFD700"
+            />
+            <Text style={styles.ratingText}>
+              {item.averageRating.toFixed(1)} ({item.totalReviews} {item.totalReviews === 1 ? 'review' : 'reviews'})
+            </Text>
+          </View>
+        )}
 
         {/* Availability Status */}
         <View style={styles.statusContainer}>
@@ -253,6 +269,19 @@ const styles = StyleSheet.create({
     },
     unavailableText: {
         color: '#D32F2F',
+    },
+    
+    // Rating Styles
+    ratingContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginTop: 6,
+        marginBottom: 4,
+    },
+    ratingText: {
+        fontSize: 12,
+        color: '#7f8c8d',
+        marginLeft: 6,
     },
 });
 

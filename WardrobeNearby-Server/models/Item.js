@@ -54,6 +54,20 @@ const ItemSchema = new Schema({
     default: true
   }, // Whether the item is currently available for rent/sale
 
+  // Review-related fields for aggregated data
+  averageRating: {
+    type: Number,
+    default: 0,
+    min: 0,
+    max: 5
+  },
+  
+  totalReviews: {
+    type: Number,
+    default: 0,
+    min: 0
+  },
+
   user: { 
     type: Schema.Types.ObjectId, 
     ref: "User", 

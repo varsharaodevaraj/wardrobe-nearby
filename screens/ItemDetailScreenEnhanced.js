@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   View, Text, StyleSheet, ScrollView, TouchableOpacity, 
-  Alert, ActivityIndicator, Dimensions, FlatList, Switch, Image 
+  Alert, ActivityIndicator, Dimensions, Switch, Image, Modal 
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -9,6 +9,9 @@ import api from '../utils/api';
 import { useAuth } from '../context/AuthContext';
 import { useFollow } from '../context/FollowContext';
 import { useRental } from '../context/RentalContext';
+import ReviewsList from '../components/ReviewsList';
+import ReviewForm from '../components/ReviewForm';
+import StarRating from '../components/StarRating';
 
 const { width } = Dimensions.get('window');
 
@@ -22,6 +25,11 @@ const ItemDetailScreenEnhanced = ({ route, navigation }) => {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [chatLoading, setChatLoading] = useState(false);
   const [itemData, setItemData] = useState(item);
+  
+  // Review-related state
+  const [showReviewForm, setShowReviewForm] = useState(false);
+  const [editingReview, setEditingReview] = useState(null);
+  const [reviewsRefreshTrigger, setReviewsRefreshTrigger] = useState(0);
   
   // Handle both old and new image formats - use images array if available, fallback to single imageUrl
   const imageGallery = itemData.images && itemData.images.length > 0 
@@ -244,16 +252,16 @@ const ItemDetailScreenEnhanced = ({ route, navigation }) => {
       <ScrollView>
         {/* Enhanced Image Section with Slideshow */}
         <View style={styles.imageSection}>
-          <FlatList
-            data={imageGallery}
-            renderItem={renderImageItem}
-            keyExtractor={(item, index) => `image-${index}`}
+          <ScrollView
             horizontal
             pagingEnabled
             showsHorizontalScrollIndicator={false}
             onScroll={handleImageScroll}
             scrollEventThrottle={16}
-          />
+            contentContainerStyle={styles.imageScrollContainer}
+          >
+            {imageGallery.map((item, index) => renderImageItem({ item, index }))}
+          </ScrollView>
           
           {/* Back Button */}
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
@@ -404,114 +412,6 @@ const ItemDetailScreenEnhanced = ({ route, navigation }) => {
             </View>
           )}
 
-          {/* Ratings Section */}
-          <View style={styles.ratingsSection}>
-            <Text style={styles.sectionTitle}>Ratings & Reviews</Text>
-            <View style={styles.ratingOverview}>
-              <View style={styles.ratingScore}>
-                <Text style={styles.ratingNumber}>4.5</Text>
-                <View style={styles.starsContainer}>
-                  {[1, 2, 3, 4, 5].map((star) => (
-                    <Ionicons
-                      key={star}
-                      name={star <= 4 ? "star" : star === 5 ? "star-half" : "star-outline"}
-                      size={16}
-                      color="#FFD700"
-                    />
-                  ))}
-                </View>
-                <Text style={styles.ratingCount}>Based on 23 reviews</Text>
-              </View>
-              <View style={styles.ratingBars}>
-                {[5, 4, 3, 2, 1].map((rating) => (
-                  <View key={rating} style={styles.ratingBar}>
-                    <Text style={styles.ratingLabel}>{rating}</Text>
-                    <Ionicons name="star" size={12} color="#FFD700" />
-                    <View style={styles.barBackground}>
-                      <View 
-                        style={[
-                          styles.barFill, 
-                          { width: `${rating === 5 ? 60 : rating === 4 ? 30 : rating === 3 ? 8 : rating === 2 ? 2 : 0}%` }
-                        ]} 
-                      />
-                    </View>
-                    <Text style={styles.ratingPercent}>
-                      {rating === 5 ? '60%' : rating === 4 ? '30%' : rating === 3 ? '8%' : rating === 2 ? '2%' : '0%'}
-                    </Text>
-                  </View>
-                ))}
-              </View>
-            </View>
-          </View>
-
-          {/* Reviews Section */}
-          <View style={styles.reviewsSection}>
-            <Text style={styles.sectionTitle}>Recent Reviews</Text>
-            {[
-              {
-                id: 1,
-                userName: "Priya S.",
-                rating: 5,
-                date: "2 days ago",
-                comment: "Amazing dress! Perfect fit and great quality. The owner was very responsive and helpful.",
-                verified: true
-              },
-              {
-                id: 2,
-                userName: "Rahul M.",
-                rating: 4,
-                date: "1 week ago", 
-                comment: "Good condition, exactly as described. Quick pickup and return process.",
-                verified: true
-              },
-              {
-                id: 3,
-                userName: "Sneha K.",
-                rating: 5,
-                date: "2 weeks ago",
-                comment: "Beautiful item! Got so many compliments. Highly recommend renting from this owner.",
-                verified: false
-              }
-            ].map((review) => (
-              <View key={review.id} style={styles.reviewCard}>
-                <View style={styles.reviewHeader}>
-                  <View style={styles.reviewerInfo}>
-                    <View style={styles.reviewerAvatar}>
-                      <Text style={styles.reviewerInitial}>
-                        {review.userName.charAt(0)}
-                      </Text>
-                    </View>
-                    <View>
-                      <View style={styles.reviewerNameRow}>
-                        <Text style={styles.reviewerName}>{review.userName}</Text>
-                        {review.verified && (
-                          <Ionicons name="checkmark-circle" size={14} color="#27AE60" />
-                        )}
-                      </View>
-                      <Text style={styles.reviewDate}>{review.date}</Text>
-                    </View>
-                  </View>
-                  <View style={styles.reviewRating}>
-                    {[1, 2, 3, 4, 5].map((star) => (
-                      <Ionicons
-                        key={star}
-                        name={star <= review.rating ? "star" : "star-outline"}
-                        size={14}
-                        color="#FFD700"
-                      />
-                    ))}
-                  </View>
-                </View>
-                <Text style={styles.reviewComment}>{review.comment}</Text>
-              </View>
-            ))}
-            
-            <TouchableOpacity style={styles.viewAllReviews}>
-              <Text style={styles.viewAllReviewsText}>View All Reviews</Text>
-              <Ionicons name="chevron-forward" size={16} color="#957DAD" />
-            </TouchableOpacity>
-          </View>
-          
           {/* Additional Info */}
           <View style={styles.infoSection}>
             <View style={styles.infoItem}>
@@ -520,6 +420,24 @@ const ItemDetailScreenEnhanced = ({ route, navigation }) => {
                 Listed on {new Date(item.date).toLocaleDateString()}
               </Text>
             </View>
+          </View>
+
+          {/* Reviews Section */}
+          <View style={styles.reviewsSection}>
+            <View style={styles.sectionHeader}>
+              <Ionicons name="chatbubbles-outline" size={24} color="#957DAD" />
+              <Text style={styles.sectionTitle}>Reviews & Ratings</Text>
+            </View>
+            
+            <ReviewsList
+              itemId={item._id}
+              onWriteReview={() => setShowReviewForm(true)}
+              onEditReview={(review) => {
+                setEditingReview(review);
+                setShowReviewForm(true);
+              }}
+              refreshTrigger={reviewsRefreshTrigger}
+            />
           </View>
         </View>
       </ScrollView>
@@ -581,6 +499,33 @@ const ItemDetailScreenEnhanced = ({ route, navigation }) => {
           </TouchableOpacity>
         </View>
       )}
+
+      {/* Review Form Modal */}
+      <Modal
+        visible={showReviewForm}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => {
+          setShowReviewForm(false);
+          setEditingReview(null);
+        }}
+      >
+        <SafeAreaView style={styles.modalContainer}>
+          <ReviewForm
+            itemId={item._id}
+            existingReview={editingReview}
+            onSuccess={(review) => {
+              setShowReviewForm(false);
+              setEditingReview(null);
+              setReviewsRefreshTrigger(prev => prev + 1);
+            }}
+            onCancel={() => {
+              setShowReviewForm(false);
+              setEditingReview(null);
+            }}
+          />
+        </SafeAreaView>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -588,6 +533,7 @@ const ItemDetailScreenEnhanced = ({ route, navigation }) => {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#FFFFFF' },
   imageSection: { position: 'relative' },
+  imageScrollContainer: { paddingHorizontal: 0 },
   imageContainer: { width, height: 400, position: 'relative' },
   image: { width: '100%', height: '100%' },
   featuredBadge: {
@@ -969,6 +915,43 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#34495e',
     fontWeight: '500',
+  },
+  
+  // Reviews Section Styles
+  reviewsSection: {
+    marginTop: 20,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E9ECEF',
+    backgroundColor: '#F8F9FA',
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#2c3e50',
+    marginLeft: 8,
+  },
+  
+  // Modal Styles
+  modalContainer: {
+    flex: 1,
+    backgroundColor: '#f8f9fa',
   },
 });
 

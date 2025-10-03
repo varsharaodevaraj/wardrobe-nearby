@@ -11,6 +11,7 @@ const rentalRoutes = require('./routes/rentals');
 const storyRoutes = require('./routes/stories');
 const userRoutes = require('./routes/users');
 const chatRoutes = require('./routes/chats');
+const reviewRoutes = require('./routes/reviews');
 
 const app = express();
 const server = http.createServer(app);
@@ -37,6 +38,7 @@ app.use('/api/rentals', rentalRoutes);
 app.use('/api/stories', storyRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/chats', chatRoutes);
+app.use('/api/reviews', reviewRoutes);
 
 // Get local network IP address dynamically
 const os = require('os');

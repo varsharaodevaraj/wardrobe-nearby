@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, ScrollView, Alert, ActivityIndicator, Platform, Switch, FlatList } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image, ScrollView, Alert, ActivityIndicator, Platform, Switch, KeyboardAvoidingView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
@@ -205,41 +205,45 @@ const AddItemScreen = ({ navigation }) => {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <ScrollView contentContainerStyle={styles.scrollViewContent}>
-        <Text style={styles.title}>List Your Item</Text>
-        {/* Multiple Images Section */}
-        <View style={styles.photosSection}>
-          <Text style={styles.sectionTitle}>Photos ({images.length}/5)</Text>
-          {images.length > 0 ? (
-            <View>
-              <FlatList
-                data={images}
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                keyExtractor={(item) => item.id}
-                renderItem={({ item, index }) => (
-                  <View style={styles.imageContainer}>
-                    <Image source={{ uri: item.uri }} style={styles.thumbnailImage} />
-                    {item.id === image?.id && (
-                      <View style={styles.featuredBadge}>
-                        <Text style={styles.featuredText}>Featured</Text>
-                      </View>
-                    )}
-                    <TouchableOpacity 
-                      style={styles.setFeaturedButton}
-                      onPress={() => setFeaturedImage(item)}
-                    >
-                      <Ionicons name="star" size={16} color={item.id === image?.id ? "#FFD700" : "#CCC"} />
-                    </TouchableOpacity>
-                    <TouchableOpacity 
-                      style={styles.removeImageButton}
-                      onPress={() => removeImage(item.id)}
-                    >
-                      <Ionicons name="close-circle" size={20} color="#FF4444" />
-                    </TouchableOpacity>
-                  </View>
-                )}
-              />
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.keyboardAvoidingView}
+      >
+        <ScrollView contentContainerStyle={styles.scrollViewContent} showsVerticalScrollIndicator={false}>
+          <Text style={styles.title}>List Your Item</Text>
+          {/* Multiple Images Section */}
+          <View style={styles.photosSection}>
+            <Text style={styles.sectionTitle}>Photos ({images.length}/5)</Text>
+            {images.length > 0 ? (
+              <View>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.imageScrollContainer}
+                >
+                  {images.map((item, index) => (
+                    <View key={item.id} style={styles.imageContainer}>
+                      <Image source={{ uri: item.uri }} style={styles.thumbnailImage} />
+                      {item.id === image?.id && (
+                        <View style={styles.featuredBadge}>
+                          <Text style={styles.featuredText}>Featured</Text>
+                        </View>
+                      )}
+                      <TouchableOpacity 
+                        style={styles.setFeaturedButton}
+                        onPress={() => setFeaturedImage(item)}
+                      >
+                        <Ionicons name="star" size={16} color={item.id === image?.id ? "#FFD700" : "#CCC"} />
+                      </TouchableOpacity>
+                      <TouchableOpacity 
+                        style={styles.removeImageButton}
+                        onPress={() => removeImage(item.id)}
+                      >
+                        <Ionicons name="close-circle" size={20} color="#FF4444" />
+                      </TouchableOpacity>
+                    </View>
+                  ))}
+                </ScrollView>
               {images.length < 5 && (
                 <TouchableOpacity style={styles.addMoreButton} onPress={showImagePickerOptions}>
                   <Ionicons name="add-circle-outline" size={30} color="#957DAD" />
@@ -358,13 +362,16 @@ const AddItemScreen = ({ navigation }) => {
           {loading ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.submitButtonText}>List My Item</Text>}
         </TouchableOpacity>
       </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F8F9FA' },
+  keyboardAvoidingView: { flex: 1 },
   scrollViewContent: { padding: 20 },
+  imageScrollContainer: { paddingHorizontal: 5 },
   title: { fontSize: 28, fontWeight: 'bold', color: '#2c3e50', textAlign: 'center', marginBottom: 20 },
   imagePicker: { width: '100%', height: 200, backgroundColor: '#FFFFFF', borderRadius: 16, justifyContent: 'center', alignItems: 'center', marginBottom: 20, borderWidth: 2, borderColor: '#E0BBE4', borderStyle: 'dashed' },
   imagePickerPlaceholder: { justifyContent: 'center', alignItems: 'center' },

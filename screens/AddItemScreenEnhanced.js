@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { 
   View, Text, StyleSheet, TouchableOpacity, Image, ScrollView, 
-  Alert, ActivityIndicator, Dimensions, FlatList 
+  Alert, ActivityIndicator, Dimensions 
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
@@ -210,14 +210,13 @@ const AddItemScreenEnhanced = ({ navigation }) => {
           
           {images.length > 0 ? (
             <>
-              <FlatList
-                data={images}
-                renderItem={renderImageItem}
-                keyExtractor={(item) => item.id.toString()}
+              <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={styles.imageList}
-              />
+              >
+                {images.map((item, index) => renderImageItem({ item, index }))}
+              </ScrollView>
               
               {images.length < MAX_IMAGES && (
                 <TouchableOpacity style={styles.addMoreButton} onPress={showImagePickerOptions}>
