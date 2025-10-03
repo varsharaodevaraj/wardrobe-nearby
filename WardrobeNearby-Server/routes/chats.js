@@ -2,6 +2,8 @@ const express = require('express');
 const router = express.Router();
 const Chat = require('../models/Chat');
 const auth = require('../middleware/auth');
+const User = require('../models/User');
+const Item = require('../models/Item');
 
 // @route   GET /api/chats
 // @desc    Get all chats for the current user
@@ -150,9 +152,18 @@ router.post('/:chatId/messages', auth, async (req, res) => {
       .populate('relatedItem', 'name imageUrl')
       .populate('messages.sender', 'name');
 
-    // Get the sent message with populated sender info
     const sentMessage = populatedChat.messages[populatedChat.messages.length - 1];
     
+    // --- NEW: Emit message to other users in the chat room ---
+    const io = req.app.get('io');
+    const recipientSocketId = Array.from(io.sockets.sockets.values()).find(socket => socket.userId === otherParticipants[0].toString())?.id;
+    if (recipientSocketId) {
+      io.to(recipientSocketId).emit('newMessage', {
+        chatId: chat._id,
+        message: sentMessage,
+      });
+    }
+
     res.json({
       success: true,
       message: sentMessage,
@@ -165,6 +176,60 @@ router.post('/:chatId/messages', auth, async (req, res) => {
       message: 'Server Error',
       error: error.message 
     });
+  }
+});
+
+// --- NEW: DELETE a message from a chat ---
+// @route   DELETE /api/chats/:chatId/messages/:messageId
+// @desc    Delete a message
+// @access  Private
+router.delete('/:chatId/messages/:messageId', auth, async (req, res) => {
+  try {
+    const chat = await Chat.findById(req.params.chatId);
+
+    if (!chat) {
+      return res.status(404).json({ message: 'Chat not found' });
+    }
+
+    // Find the message to delete
+    const message = chat.messages.id(req.params.messageId);
+
+    if (!message) {
+      return res.status(404).json({ message: 'Message not found' });
+    }
+
+    // Ensure the user owns the message
+    if (message.sender.toString() !== req.user.id) {
+      return res.status(401).json({ message: 'User not authorized to delete this message' });
+    }
+
+    // Remove the message using the pull method
+    chat.messages.pull({ _id: req.params.messageId });
+
+    // If the deleted message was the last one, update the lastMessage timestamp
+    if (chat.messages.length > 0) {
+      chat.lastMessage = chat.messages[chat.messages.length - 1].timestamp;
+    } else {
+      chat.lastMessage = chat.createdAt;
+    }
+    
+    await chat.save();
+
+    // --- NEW: Emit message deletion to other users in the chat room ---
+    const io = req.app.get('io');
+    const otherParticipants = chat.participants.filter(p => p.toString() !== req.user.id);
+    const recipientSocketId = Array.from(io.sockets.sockets.values()).find(socket => socket.userId === otherParticipants[0].toString())?.id;
+    if (recipientSocketId) {
+      io.to(recipientSocketId).emit('messageDeleted', {
+        chatId: req.params.chatId,
+        messageId: req.params.messageId,
+      });
+    }
+
+    res.json({ message: 'Message deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting message:', error);
+    res.status(500).send('Server Error');
   }
 });
 

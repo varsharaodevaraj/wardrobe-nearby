@@ -9,6 +9,7 @@ import { AuthProvider, useAuth } from "./context/AuthContext";
 import { FollowProvider } from "./context/FollowContext";
 import { RentalProvider } from "./context/RentalContext";
 import { ChatProvider } from "./context/ChatContext";
+import { NotificationProvider } from "./context/NotificationContext";
 import ErrorBoundary from "./components/ErrorBoundary";
 
 // Import all screens
@@ -28,6 +29,9 @@ import ChatScreen from "./screens/ChatScreen";
 // Enhanced screens (optional - for testing new features)
 import AddItemScreenEnhanced from "./screens/AddItemScreenEnhanced";
 import ItemDetailScreenEnhanced from "./screens/ItemDetailScreenEnhanced";
+
+// Import simple connectivity test
+import { quickNetworkCheck } from "./config/simpleNetworkTest";
 
 const AuthStack = createNativeStackNavigator();
 const MainStack = createNativeStackNavigator();
@@ -123,15 +127,33 @@ function AppNavigator() {
 
 // This is the root component of your entire application
 export default function App() {
+  // Run connectivity test on app startup
+  React.useEffect(() => {
+    console.log('🚀 [APP] WardrobeNearby starting up...');
+    
+    // Simple network connectivity test
+    setTimeout(() => {
+      quickNetworkCheck().then(result => {
+        if (result.success) {
+          console.log('🎉 [APP] Network connectivity verified on startup');
+        } else {
+          console.warn('⚠️  [APP] Network connectivity issues on startup:', result.error);
+        }
+      });
+    }, 2000);
+  }, []);
+
   return (
     <SafeAreaProvider>
       <ErrorBoundary>
         <AuthProvider>
           <FollowProvider>
             <RentalProvider>
-              <ChatProvider>
-                <AppNavigator />
-              </ChatProvider>
+              <NotificationProvider>
+                <ChatProvider>
+                  <AppNavigator />
+                </ChatProvider>
+              </NotificationProvider>
             </RentalProvider>
           </FollowProvider>
         </AuthProvider>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -6,14 +6,13 @@ import {
   FlatList,
   TextInput,
   TouchableOpacity,
-  // SafeAreaView is removed from here
   KeyboardAvoidingView,
   Platform,
   Alert,
   ActivityIndicator,
   Animated,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context'; // <-- ✅ THIS IS THE NEW, CORRECT IMPORT
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
 import { useChatContext } from '../context/ChatContext';
@@ -23,7 +22,6 @@ import MessageNotification from '../components/MessageNotification';
 import api from '../utils/api';
 
 const ChatScreen = ({ route, navigation }) => {
-  // Defensive programming: handle cases where route.params might be undefined
   const params = route?.params || {};
   const { 
     chatId = null, 
@@ -33,10 +31,12 @@ const ChatScreen = ({ route, navigation }) => {
   } = params;
   const { user } = useAuth();
   const {
+    socket,
     isConnected,
     joinChat,
     leaveChat,
     sendRealtimeMessage,
+    deleteRealtimeMessage,
     startTyping: startRealtimeTyping,
     stopTyping: stopRealtimeTyping,
     markMessagesAsRead,
@@ -57,12 +57,6 @@ const ChatScreen = ({ route, navigation }) => {
   const sendButtonScale = useRef(new Animated.Value(1)).current;
   const inputBorderAnim = useRef(new Animated.Value(0)).current;
 
-  // Debug info
-  console.log('[CHAT] Screen initialized with params:', { chatId, participantId, itemId, participantName });
-  console.log('[CHAT] Raw route.params:', route?.params);
-  console.log('[CHAT] User info:', { userId: user?.id, userName: user?.name });
-
-  // Safety check: if no essential parameters provided, show error and go back
   useEffect(() => {
     if (!chatId && !participantId) {
       console.error('[CHAT] No chatId or participantId provided');
@@ -76,41 +70,27 @@ const ChatScreen = ({ route, navigation }) => {
     loadChat();
   }, [chatId, participantId]);
 
-  // Real-time WebSocket integration
   useEffect(() => {
     if (chat?._id) {
-      console.log('[CHAT] Joining real-time chat room:', chat._id);
-      // Join the chat room for real-time updates
       joinChat(chat._id);
-
-      // Mark messages as read when entering chat
       markMessagesAsRead(chat._id);
-
-      // Clear any existing new messages for this chat
       clearNewMessages(chat._id);
 
-      // Cleanup when leaving chat
       return () => {
-        console.log('[CHAT] Leaving real-time chat room:', chat._id);
         leaveChat(chat._id);
         stopRealtimeTyping(chat._id);
       };
     }
   }, [chat?._id]);
 
-  // Handle real-time new messages
   useEffect(() => {
     const chatNewMessages = newMessages.filter(msg => msg.chatId === chat?._id);
 
     if (chatNewMessages.length > 0) {
-      console.log('[CHAT] Processing real-time messages:', chatNewMessages);
-
-      // Add new messages to chat
       const currentMessages = Array.isArray(chat?.messages) ? chat.messages : [];
       const updatedMessages = [...currentMessages];
 
       chatNewMessages.forEach(msgData => {
-        // Safety check for message data
         if (msgData?.message && typeof msgData.message === 'object') {
           const exists = updatedMessages.find(m =>
             m._id === msgData.message._id || m.tempId === msgData.message.tempId
@@ -119,7 +99,6 @@ const ChatScreen = ({ route, navigation }) => {
           if (!exists) {
             updatedMessages.push(msgData.message);
             
-            // Show notification for messages from other users
             if (msgData.message.sender._id !== user.id) {
               setNotificationData({
                 senderName: msgData.message.sender.name,
@@ -133,27 +112,35 @@ const ChatScreen = ({ route, navigation }) => {
       });
 
       setChat(prev => prev ? { ...prev, messages: updatedMessages } : null);
-
-      // Clear processed messages
       clearNewMessages(chat._id);
-
-      // Auto-scroll to bottom
-      setTimeout(() => {
-        flatListRef.current?.scrollToEnd({ animated: true });
-      }, 100);
-
-      // Mark as read
+      setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
       markMessagesAsRead(chat._id);
     }
   }, [newMessages, chat?._id]);
 
-  // Cleanup on unmount
+  useEffect(() => {
+    if (chat?._id && socket) {
+      const handleDelete = ({ chatId: deletedInChatId, messageId }) => {
+        if (deletedInChatId === chat._id) {
+          setChat(prev => ({
+            ...prev,
+            messages: prev.messages.filter(msg => msg._id !== messageId),
+          }));
+        }
+      };
+      socket.on('messageDeleted', handleDelete);
+
+      return () => {
+        socket.off('messageDeleted', handleDelete);
+      };
+    }
+  }, [chat?._id, socket]);
+
   useEffect(() => {
     return () => {
       if (typingTimeoutRef.current) {
         clearTimeout(typingTimeoutRef.current);
       }
-      // Stop typing when leaving screen
       if (chat?._id) {
         stopRealtimeTyping(chat._id);
       }
@@ -163,25 +150,15 @@ const ChatScreen = ({ route, navigation }) => {
   const loadChat = async () => {
     setLoading(true);
     try {
-      console.log('[CHAT] Loading chat with params:', { chatId, participantId, itemId });
       let chatData;
-
       if (chatId) {
-        // Load existing chat
-        console.log('[CHAT] Loading existing chat:', chatId);
         chatData = await api(`/chats/${chatId}`);
       } else if (participantId) {
-        // Create new chat or get existing one
-        console.log('[CHAT] Creating chat with participant:', participantId);
         chatData = await api('/chats', 'POST', { participantId, itemId });
       } else {
         throw new Error('Missing chatId or participantId');
       }
-
-      console.log('[CHAT] Loaded chat data:', chatData);
       setChat(chatData);
-
-      // Mark messages as read
       if (chatData && chatData._id) {
         await api(`/chats/${chatData._id}/mark-read`, 'PUT');
       }
@@ -190,83 +167,49 @@ const ChatScreen = ({ route, navigation }) => {
       Alert.alert(
         'Chat Error',
         `Failed to load chat: ${error.message || 'Unknown error'}.\n\nPlease check your internet connection and try again.`,
-        [
-          { text: 'Retry', onPress: () => loadChat() },
-          { text: 'Go Back', onPress: () => navigation.goBack() }
-        ]
+        [{ text: 'Retry', onPress: loadChat }, { text: 'Go Back', onPress: () => navigation.goBack() }]
       );
     } finally {
       setLoading(false);
     }
   };
 
-  // Real-time typing management
   const startTyping = () => {
-    if (chat?._id) {
-      startRealtimeTyping(chat._id);
-    }
+    if (chat?._id) startRealtimeTyping(chat._id);
   };
 
   const stopTyping = () => {
-    if (chat?._id) {
-      stopRealtimeTyping(chat._id);
-    }
+    if (chat?._id) stopRealtimeTyping(chat._id);
   };
 
   const handleTyping = (text) => {
-    console.log('[CHAT] Typing input received:', text);
     setMessage(text);
-
-    // Start typing indicator
     if (text.trim() && !typingTimeoutRef.current) {
-      console.log('[CHAT] Starting typing indicator');
       startTyping();
     }
-
-    // Clear existing timeout
     if (typingTimeoutRef.current) {
       clearTimeout(typingTimeoutRef.current);
     }
-
-    // Set new timeout to stop typing
     typingTimeoutRef.current = setTimeout(() => {
-      console.log('[CHAT] Stopping typing indicator');
       stopTyping();
       typingTimeoutRef.current = null;
-    }, 2000); // Stop typing after 2 seconds of inactivity
+    }, 2000);
   };
 
   const sendMessage = async () => {
-    if (!message.trim() || !chat || sending) {
-      console.log('[CHAT] Send message blocked:', {
-        hasMessage: !!message.trim(),
-        hasChat: !!chat,
-        sending
-      });
-      return;
-    }
-
-    // Extra safety check for chat structure
+    if (!message.trim() || !chat || sending) return;
     if (!chat._id || !Array.isArray(chat.messages)) {
-      console.error('[CHAT] Invalid chat structure:', chat);
       Alert.alert('Error', 'Invalid chat data. Please try refreshing the chat.');
       return;
     }
-
-    // Stop typing immediately when sending
     stopTyping();
     if (typingTimeoutRef.current) {
       clearTimeout(typingTimeoutRef.current);
       typingTimeoutRef.current = null;
     }
-
     setSending(true);
     const messageContent = message.trim();
-
-    // Clear input immediately for better UX
     setMessage('');
-
-    // Create optimistic message for instant feedback
     const tempMessage = {
       _id: `temp_${Date.now()}`,
       content: messageContent,
@@ -275,114 +218,90 @@ const ChatScreen = ({ route, navigation }) => {
       status: 'sending',
       tempId: `temp_${Date.now()}`,
     };
-
-    // Add message optimistically to chat
     const currentMessages = Array.isArray(chat.messages) ? chat.messages : [];
-    const optimisticChat = {
-      ...chat,
-      messages: [...currentMessages, tempMessage]
-    };
-    setChat(optimisticChat);
-
-    // Scroll to bottom immediately
-    setTimeout(() => {
-      flatListRef.current?.scrollToEnd({ animated: true });
-    }, 50);
-
-    console.log('[CHAT] Sending real-time message:', { chatId: chat._id, content: messageContent });
-
+    setChat({ ...chat, messages: [...currentMessages, tempMessage] });
+    setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 50);
     try {
-      // Send to backend API
-      const response = await api(`/chats/${chat._id}/messages`, 'POST', {
-        content: messageContent
-      });
-
-      console.log('[CHAT] Message sent successfully, response:', response);
-
-      // Handle wrapped response structure
+      const response = await api(`/chats/${chat._id}/messages`, 'POST', { content: messageContent });
       const updatedChat = response.chat || response;
-      
-      // Extra validation for chat structure
       if (!updatedChat._id || !Array.isArray(updatedChat.messages)) {
-        console.error('[CHAT] Invalid response structure:', response);
         throw new Error('Invalid chat response from server');
       }
-
-      // Replace optimistic message with real message
       setChat(updatedChat);
-
-      // Send real-time notification to other users
       if (Array.isArray(updatedChat.messages) && updatedChat.messages.length > 0) {
         const realMessage = updatedChat.messages[updatedChat.messages.length - 1];
         sendRealtimeMessage(chat._id, realMessage);
       }
-
-      // Scroll to bottom again
-      setTimeout(() => {
-        flatListRef.current?.scrollToEnd({ animated: true });
-      }, 100);
+      setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
     } catch (error) {
       console.error('[CHAT] Error sending message:', error);
-
-      // Remove failed message and restore input
       setChat(chat);
       setMessage(messageContent);
-
       Alert.alert('Error', `Failed to send message: ${error.message || 'Unknown error'}`);
     } finally {
       setSending(false);
     }
   };
 
+  const handleDeleteMessage = useCallback(async (messageId) => {
+    Alert.alert(
+      "Delete Message",
+      "Are you sure you want to delete this message?",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              setChat(prev => ({
+                ...prev,
+                messages: prev.messages.filter(msg => msg._id !== messageId),
+              }));
+              await api(`/chats/${chat._id}/messages/${messageId}`, 'DELETE');
+              deleteRealtimeMessage(chat._id, messageId);
+            } catch (error) {
+              console.error('[CHAT] Error deleting message:', error);
+              Alert.alert('Error', 'Failed to delete message. Please try again.');
+              loadChat();
+            }
+          },
+        },
+      ]
+    );
+  }, [chat, deleteRealtimeMessage, loadChat]);
+
   const renderMessage = ({ item, index }) => {
     const isMyMessage = item.sender._id === user.id;
     const messages = Array.isArray(chat.messages) ? chat.messages : [];
-    const showDate = index === 0 ||
-      (messages[index - 1] && 
-       new Date(item.timestamp).toDateString() !==
-       new Date(messages[index - 1].timestamp).toDateString());
-
-    // Determine if this message has been seen by the other user
+    const showDate = index === 0 || (messages[index - 1] && new Date(item.timestamp).toDateString() !== new Date(messages[index - 1].timestamp).toDateString());
     const isLastMessage = index === messages.length - 1;
     const participants = Array.isArray(chat.participants) ? chat.participants : [];
     const otherParticipant = participants.find(p => p._id !== user.id);
-    
-    // Enhanced read status logic
-    const hasBeenRead = item.status === 'read' || 
-                       item.isRead ||
-                       otherParticipant?.lastReadMessageId === item._id ||
-                       (chat.lastReadBy && chat.lastReadBy.includes(otherParticipant?._id));
-    
-    // Update message status for rendering
-    const messageWithStatus = {
-      ...item,
-      status: hasBeenRead ? 'read' : (item.status || 'sent')
-    };
+    const hasBeenRead = item.status === 'read' || item.isRead || otherParticipant?.lastReadMessageId === item._id || (chat.lastReadBy && chat.lastReadBy.includes(otherParticipant?._id));
+    const messageWithStatus = { ...item, status: hasBeenRead ? 'read' : (item.status || 'sent') };
 
     return (
-      <View>
-        {showDate && (
-          <View style={styles.dateContainer}>
-            <Text style={styles.dateText}>
-              {new Date(item.timestamp).toLocaleDateString('en-US', {
-                weekday: 'long',
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric'
-              })}
-            </Text>
-          </View>
-        )}
-        <MessageBubble
-          message={messageWithStatus}
-          isMyMessage={isMyMessage}
-          showStatus={isMyMessage && isLastMessage}
-          hasBeenRead={hasBeenRead}
-        />
-      </View>
+      <TouchableOpacity onLongPress={() => isMyMessage && handleDeleteMessage(item._id)}>
+        <View>
+          {showDate && (
+            <View style={styles.dateContainer}>
+              <Text style={styles.dateText}>
+                {new Date(item.timestamp).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+              </Text>
+            </View>
+          )}
+          <MessageBubble
+            message={messageWithStatus}
+            isMyMessage={isMyMessage}
+            showStatus={isMyMessage && isLastMessage}
+            hasBeenRead={hasBeenRead}
+          />
+        </View>
+      </TouchableOpacity>
     );
   };
-
+  
   if (loading) {
     return (
       <SafeAreaView style={styles.container}>
@@ -400,10 +319,7 @@ const ChatScreen = ({ route, navigation }) => {
         <View style={styles.errorContainer}>
           <Ionicons name="chatbubble-outline" size={64} color="#E9ECEF" />
           <Text style={styles.errorText}>Chat not found</Text>
-          <TouchableOpacity
-            style={styles.retryButton}
-            onPress={() => navigation.goBack()}
-          >
+          <TouchableOpacity style={styles.retryButton} onPress={() => navigation.goBack()}>
             <Text style={styles.retryButtonText}>Go Back</Text>
           </TouchableOpacity>
         </View>
@@ -411,7 +327,6 @@ const ChatScreen = ({ route, navigation }) => {
     );
   }
 
-  // Safety check: if no essential parameters and not loading, show error
   if (!chatId && !participantId && !loading) {
     return (
       <SafeAreaView style={styles.container}>
@@ -421,33 +336,24 @@ const ChatScreen = ({ route, navigation }) => {
           <Text style={[styles.errorText, { fontSize: 14, marginTop: 10 }]}>
             Please navigate to this chat from an item or chat list.
           </Text>
-          <TouchableOpacity
-            style={styles.retryButton}
-            onPress={() => navigation.goBack()}
-          >
+          <TouchableOpacity style={styles.retryButton} onPress={() => navigation.goBack()}>
             <Text style={styles.retryButtonText}>Go Back</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
     );
   }
-
+  
   const participantsArray = Array.isArray(chat.participants) ? chat.participants : [];
   const otherParticipant = participantsArray.find(p => p._id !== user.id);
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Message Notification */}
       <MessageNotification
         isVisible={showNotification}
         senderName={notificationData?.senderName}
         messageContent={notificationData?.messageContent}
-        onPress={() => {
-          // Scroll to bottom when notification is tapped
-          setTimeout(() => {
-            flatListRef.current?.scrollToEnd({ animated: true });
-          }, 100);
-        }}
+        onPress={() => setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100)}
         onDismiss={() => {
           setShowNotification(false);
           setNotificationData(null);
@@ -459,7 +365,6 @@ const ChatScreen = ({ route, navigation }) => {
         style={styles.chatContainer}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
       >
-        {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={{ padding: 4 }}>
             <Ionicons name="arrow-back" size={24} color="white" />
@@ -487,7 +392,6 @@ const ChatScreen = ({ route, navigation }) => {
           </TouchableOpacity>
         </View>
 
-        {/* Messages */}
         <FlatList
           ref={flatListRef}
           data={chat.messages || []}
@@ -505,19 +409,12 @@ const ChatScreen = ({ route, navigation }) => {
           )}
           ListFooterComponent={() => {
             if (!chat?._id || !user?.id) return null;
-            
             const typingUsers = getTypingUsers(chat._id) || [];
-            const filteredTypingUsers = Array.isArray(typingUsers) 
-              ? typingUsers.filter(u => u && u._id && u._id !== user.id) 
-              : [];
-            
+            const filteredTypingUsers = Array.isArray(typingUsers) ? typingUsers.filter(u => u && u._id && u._id !== user.id) : [];
             return <TypingIndicator typingUsers={filteredTypingUsers} />;
           }}
         />
 
-
-
-        {/* Message Input */}
         <View style={styles.inputContainer}>
         <View style={styles.inputRow}>
           <Animated.View style={[
@@ -558,7 +455,6 @@ const ChatScreen = ({ route, navigation }) => {
                   duration: 200,
                   useNativeDriver: false,
                 }).start();
-                // Stop typing when input loses focus
                 stopTyping();
                 if (typingTimeoutRef.current) {
                   clearTimeout(typingTimeoutRef.current);
@@ -574,47 +470,21 @@ const ChatScreen = ({ route, navigation }) => {
               { transform: [{ scale: sendButtonScale }] }
             ]}
             onPress={() => {
-              // Animate button press
               Animated.sequence([
-                Animated.timing(sendButtonScale, {
-                  toValue: 0.9,
-                  duration: 100,
-                  useNativeDriver: true,
-                }),
-                Animated.timing(sendButtonScale, {
-                  toValue: 1,
-                  duration: 100,
-                  useNativeDriver: true,
-                })
+                Animated.timing(sendButtonScale, { toValue: 0.9, duration: 100, useNativeDriver: true }),
+                Animated.timing(sendButtonScale, { toValue: 1, duration: 100, useNativeDriver: true })
               ]).start();
               sendMessage();
             }}
             disabled={!message.trim() || sending}
             activeOpacity={0.8}
-            onPressIn={() => {
-              Animated.timing(sendButtonScale, {
-                toValue: 0.95,
-                duration: 50,
-                useNativeDriver: true,
-              }).start();
-            }}
-            onPressOut={() => {
-              Animated.timing(sendButtonScale, {
-                toValue: 1,
-                duration: 50,
-                useNativeDriver: true,
-              }).start();
-            }}
+            onPressIn={() => Animated.timing(sendButtonScale, { toValue: 0.95, duration: 50, useNativeDriver: true }).start()}
+            onPressOut={() => Animated.timing(sendButtonScale, { toValue: 1, duration: 50, useNativeDriver: true }).start()}
           >
             {sending ? (
               <ActivityIndicator size="small" color="white" />
             ) : (
-              <Ionicons
-                name="send"
-                size={20}
-                color="white"
-                style={{ marginLeft: 2 }} // Slight offset for visual balance
-              />
+              <Ionicons name="send" size={20} color="white" style={{ marginLeft: 2 }} />
             )}
           </TouchableOpacity>
         </View>
@@ -632,7 +502,7 @@ const ChatScreen = ({ route, navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8F9FA', // Match app's light background
+    backgroundColor: '#F8F9FA',
   },
   chatContainer: {
     flex: 1,
@@ -644,13 +514,11 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     paddingTop: Platform.OS === 'ios' ? 20 : 20,
     paddingBottom: 12,
-    backgroundColor: '#957DAD', // Match app's primary purple
+    backgroundColor: '#957DAD',
     elevation: 4,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
-    borderBottomLeftRadius: 0,
-    borderBottomRightRadius: 0,
   },
   headerInfo: {
     flex: 1,
@@ -674,7 +542,6 @@ const styles = StyleSheet.create({
   },
   messagesList: {
     flex: 1,
-    backgroundColor: 'transparent',
   },
   messagesContainer: {
     paddingHorizontal: 16,
@@ -731,14 +598,13 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#2c3e50',
     textAlignVertical: 'center',
-    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
   },
   sendButton: {
     marginLeft: 12,
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#957DAD', // Match app's primary purple
+    backgroundColor: '#957DAD',
     justifyContent: 'center',
     alignItems: 'center',
     elevation: 3,

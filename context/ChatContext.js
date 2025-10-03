@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
 import io from 'socket.io-client';
 import { useAuth } from './AuthContext';
-import { API_URL } from '../config/apiConfig';
+import { getDynamicBaseUrl, refreshIPCache } from '../config/dynamicApiConfig';
 
 const ChatContext = createContext();
 
@@ -22,85 +22,101 @@ export const ChatProvider = ({ children }) => {
   const socketRef = useRef(null);
   const currentChatId = useRef(null);
 
-  // Initialize socket connection
+  // Initialize socket connection with dynamic IP detection
   useEffect(() => {
     if (user?.id) {
       console.log('[CHAT_CONTEXT] Initializing WebSocket connection...');
-      console.log('[CHAT_CONTEXT] Connecting to:', API_URL.replace('/api', ''));
       
-      // Use base URL without /api for Socket.IO
-      const socketUrl = API_URL.replace('/api', '');
-      const newSocket = io(socketUrl, {
-        transports: ['websocket', 'polling'],
-        reconnection: true,
-        reconnectionAttempts: 5,
-        reconnectionDelay: 1000,
-        timeout: 20000,
-        forceNew: true,
-      });
+      const initializeSocket = async () => {
+        try {
+          const baseUrl = await getDynamicBaseUrl();
+          console.log('[CHAT_CONTEXT] Connecting to:', baseUrl);
+          
+          const newSocket = io(baseUrl, {
+            transports: ['websocket', 'polling'],
+            reconnection: true,
+            reconnectionAttempts: 5,
+            reconnectionDelay: 1000,
+            timeout: 20000,
+            forceNew: true,
+          });
 
-      socketRef.current = newSocket;
-      setSocket(newSocket);
+          socketRef.current = newSocket;
+          setSocket(newSocket);
 
-      // Connection events
-      newSocket.on('connect', () => {
-        console.log('[CHAT_CONTEXT] ✅ Connected to WebSocket server');
-        setIsConnected(true);
-        
-        // Authenticate user
-        newSocket.emit('authenticate', user.id);
-      });
+          // Connection events
+          newSocket.on('connect', () => {
+            console.log('[CHAT_CONTEXT] ✅ Connected to WebSocket server');
+            setIsConnected(true);
+            
+            // Authenticate user
+            newSocket.emit('authenticate', user.id);
+          });
 
-      newSocket.on('disconnect', () => {
-        console.log('[CHAT_CONTEXT] ❌ Disconnected from WebSocket server');
-        setIsConnected(false);
-      });
+          newSocket.on('disconnect', () => {
+            console.log('[CHAT_CONTEXT] ❌ Disconnected from WebSocket server');
+            setIsConnected(false);
+          });
 
-      newSocket.on('connect_error', (error) => {
-        console.error('[CHAT_CONTEXT] Connection error:', error);
-        console.error('[CHAT_CONTEXT] Error details:', error.message);
-        console.error('[CHAT_CONTEXT] Socket URL used:', socketUrl);
-        setIsConnected(false);
-      });
+          newSocket.on('connect_error', (error) => {
+            console.error('[CHAT_CONTEXT] Connection error:', error);
+            console.error('[CHAT_CONTEXT] Error details:', error.message);
+            console.error('[CHAT_CONTEXT] Socket URL used:', baseUrl);
+            setIsConnected(false);
+            
+            // Try refreshing IP cache on connection error
+            console.log('[CHAT_CONTEXT] Refreshing IP cache for next attempt...');
+            refreshIPCache();
+          });
 
-      newSocket.on('reconnect', (attemptNumber) => {
-        console.log(`[CHAT_CONTEXT] Reconnected after ${attemptNumber} attempts`);
-        setIsConnected(true);
-      });
+          newSocket.on('reconnect', (attemptNumber) => {
+            console.log(`[CHAT_CONTEXT] Reconnected after ${attemptNumber} attempts`);
+            setIsConnected(true);
+          });
 
-      newSocket.on('reconnect_error', (error) => {
-        console.error('[CHAT_CONTEXT] Reconnection error:', error);
-      });
+          newSocket.on('reconnect_error', (error) => {
+            console.error('[CHAT_CONTEXT] Reconnection error:', error);
+          });
 
-      // Real-time message events
-      newSocket.on('newMessage', (data) => {
-        console.log('[CHAT_CONTEXT] 💬 New message received:', data);
-        setNewMessages(prev => [...prev, data]);
-      });
+          // Real-time message events
+          newSocket.on('newMessage', (data) => {
+            console.log('[CHAT_CONTEXT] 💬 New message received:', data);
+            setNewMessages(prev => [...prev, data]);
+          });
 
-      // Typing indicator events
-      newSocket.on('userTyping', (data) => {
-        console.log('[CHAT_CONTEXT] ⌨️ Typing status update:', data);
-        const { chatId, userId, user: userData, isTyping } = data;
-        
-        setTypingUsers(prev => ({
-          ...prev,
-          [chatId]: isTyping 
-            ? [...(prev[chatId] || []).filter(u => u._id !== userId), { _id: userId, ...userData }]
-            : (prev[chatId] || []).filter(u => u._id !== userId)
-        }));
-      });
+          // Typing indicator events
+          newSocket.on('userTyping', (data) => {
+            console.log('[CHAT_CONTEXT] ⌨️ Typing status update:', data);
+            const { chatId, userId, user: userData, isTyping } = data;
+            
+            setTypingUsers(prev => ({
+              ...prev,
+              [chatId]: isTyping 
+                ? [...(prev[chatId] || []).filter(u => u._id !== userId), { _id: userId, ...userData }]
+                : (prev[chatId] || []).filter(u => u._id !== userId)
+            }));
+          });
 
-      // Read receipt events
-      newSocket.on('messagesMarkedRead', (data) => {
-        console.log('[CHAT_CONTEXT] 👁️ Messages marked as read:', data);
-        // Handle read receipts here if needed
-      });
+          // Read receipt events
+          newSocket.on('messagesMarkedRead', (data) => {
+            console.log('[CHAT_CONTEXT] 👁️ Messages marked as read:', data);
+            // Handle read receipts here if needed
+          });
+
+        } catch (error) {
+          console.error('[CHAT_CONTEXT] Failed to initialize socket:', error);
+        }
+      };
+
+      // Initialize socket connection
+      initializeSocket();
 
       // Cleanup on unmount
       return () => {
-        console.log('[CHAT_CONTEXT] Cleaning up WebSocket connection');
-        newSocket.disconnect();
+        if (socketRef.current) {
+          console.log('[CHAT_CONTEXT] Cleaning up WebSocket connection');
+          socketRef.current.disconnect();
+        }
       };
     }
   }, [user?.id]);
@@ -138,6 +154,17 @@ export const ChatProvider = ({ children }) => {
       socketRef.current.emit('sendMessage', {
         chatId,
         message
+      });
+    }
+  };
+  
+  // --- NEW: Real-time message deletion ---
+  const deleteRealtimeMessage = (chatId, messageId) => {
+    if (socketRef.current && chatId && messageId) {
+      console.log(`[CHAT_CONTEXT] 🗑️ Deleting real-time message from chat ${chatId}`);
+      socketRef.current.emit('deleteMessage', {
+        chatId,
+        messageId
       });
     }
   };
@@ -187,6 +214,7 @@ export const ChatProvider = ({ children }) => {
     joinChat,
     leaveChat,
     sendRealtimeMessage,
+    deleteRealtimeMessage,
     startTyping,
     stopTyping,
     markMessagesAsRead,

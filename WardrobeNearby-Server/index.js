@@ -137,6 +137,18 @@ io.on('connection', (socket) => {
     console.log(`⏹️ User ${socket.userId} stopped typing in chat ${chatId}`);
   });
 
+  // --- NEW: Real-time message deletion ---
+  socket.on('deleteMessage', (data) => {
+    const { chatId, messageId } = data;
+    console.log(`🗑️ Broadcasting message deletion to chat ${chatId}`);
+    
+    // Broadcast to all users in the chat room except sender
+    socket.to(`chat_${chatId}`).emit('messageDeleted', {
+      chatId,
+      messageId
+    });
+  });
+
   // Message status updates (read receipts)
   socket.on('markMessagesRead', (data) => {
     const { chatId, userId } = data;
