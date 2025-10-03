@@ -29,12 +29,22 @@ const ItemCard = React.memo(({ item }) => {
     setImageError(true);
   }, [item.imageUrl]);
 
+  // Use featured image if available, fallback to main imageUrl
+  const getFeaturedImageUrl = () => {
+    if (item.images && item.images.length > 0) {
+      const featuredIndex = item.featuredImageIndex || 0;
+      return item.images[featuredIndex] || item.images[0];
+    }
+    return item.imageUrl;
+  };
+
   // Fallback image for when the main image fails to load
   const fallbackImageUrl = 'https://dummyimage.com/600x400/E0BBE4/4A235A&text=No+Image';
+  const featuredImage = getFeaturedImageUrl();
   
   // Check if the URL is from placehold.co (which can be unreliable)
-  const isUnreliableUrl = item.imageUrl && item.imageUrl.includes('placehold.co');
-  const displayUrl = isUnreliableUrl || imageError ? fallbackImageUrl : item.imageUrl;
+  const isUnreliableUrl = featuredImage && featuredImage.includes('placehold.co');
+  const displayUrl = isUnreliableUrl || imageError ? fallbackImageUrl : featuredImage;
 
   return (
     // --- ATTACH ONPRESS HANDLER ---
@@ -72,6 +82,26 @@ const ItemCard = React.memo(({ item }) => {
                 <Text style={styles.ownItemText}>Your Item</Text>
               </View>
             )}
+          </View>
+        </View>
+
+        {/* Availability Status */}
+        <View style={styles.statusContainer}>
+          <View style={[
+            styles.availabilityBadge,
+            item.isAvailable !== false ? styles.availableBadge : styles.unavailableBadge
+          ]}>
+            <Ionicons 
+              name={item.isAvailable !== false ? "checkmark-circle" : "close-circle"} 
+              size={12} 
+              color={item.isAvailable !== false ? "#2E7D32" : "#D32F2F"} 
+            />
+            <Text style={[
+              styles.availabilityText,
+              item.isAvailable !== false ? styles.availableText : styles.unavailableText
+            ]}>
+              {item.isAvailable !== false ? 'Available' : 'Not Available'}
+            </Text>
           </View>
         </View>
         
@@ -195,6 +225,34 @@ const styles = StyleSheet.create({
         fontSize: 10,
         color: '#666',
         fontWeight: '500',
+    },
+    statusContainer: {
+        marginVertical: 5,
+    },
+    availabilityBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 10,
+        alignSelf: 'flex-start',
+    },
+    availableBadge: {
+        backgroundColor: '#E8F5E8',
+    },
+    unavailableBadge: {
+        backgroundColor: '#FFF2F2',
+    },
+    availabilityText: {
+        fontSize: 10,
+        fontWeight: 'bold',
+        marginLeft: 4,
+    },
+    availableText: {
+        color: '#2E7D32',
+    },
+    unavailableText: {
+        color: '#D32F2F',
     },
 });
 

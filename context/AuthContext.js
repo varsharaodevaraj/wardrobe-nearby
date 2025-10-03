@@ -62,8 +62,8 @@ export const AuthProvider = ({ children }) => {
   const signup = async (name, email, password) => {
     try {
       await api('/auth/signup', 'POST', { name, email, password });
-      // After signup, log the user in to get a token
-      await login(email, password);
+      // Note: User must now log in manually after signup
+      console.log("[AUTH] User registered successfully. Please log in to continue.");
     } catch (error) {
       console.error("[AUTH] Signup Error:", error);
       throw error;

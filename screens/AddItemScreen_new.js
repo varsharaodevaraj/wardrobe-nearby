@@ -48,7 +48,7 @@ const AddItemScreen = ({ navigation }) => {
       }
 
       let result = await ImagePicker.launchCameraAsync({
-        mediaTypes: 'Images',
+        mediaTypes: ImagePicker.MediaType.Images,
         allowsEditing: true,
         aspect: [4, 3],
         quality: 0.7,
@@ -96,7 +96,7 @@ const AddItemScreen = ({ navigation }) => {
 
       // Launch image picker
       let result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: 'Images',
+        mediaTypes: ImagePicker.MediaType.Images,
         allowsEditing: true,
         aspect: [4, 3],
         quality: 0.7,

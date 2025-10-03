@@ -3,26 +3,52 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView, KeyboardAvoidingV
 import { SafeAreaView } from "react-native-safe-area-context";
 import StyledTextInput from "../components/StyledTextInput";
 import { useAuth } from "../context/AuthContext";
+import { validateEmail, normalizeEmail } from "../utils/emailValidation";
 
-const LoginScreen = ({ navigation }) => {
+export default function LoginScreen({ navigation }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [emailError, setEmailError] = useState("");
   const { login } = useAuth();
+
+    const handleEmailChange = (text) => {
+    const normalizedEmail = normalizeEmail(text);
+    setEmail(normalizedEmail);
+    
+    if (text.length > 0) {
+      const validation = validateEmail(text);
+      if (!validation.isValid) {
+        setEmailError(validation.message);
+      } else {
+        setEmailError("");
+      }
+    } else {
+      setEmailError("");
+    }
+  };
 
   const handleLogin = async () => {
     if (!email || !password) {
-      return Alert.alert("Missing Information", "Please enter both email and password.");
+      Alert.alert("Error", "Please fill in all fields");
+      return;
     }
-    setLoading(true);
+
+    // Final email validation before submission
+    const emailValidation = validateEmail(email);
+    if (!emailValidation.isValid) {
+      Alert.alert("Invalid Email", emailValidation.message);
+      return;
+    }
+
+    setIsLoading(true);
     try {
       await login(email, password);
-      // Navigation will happen automatically due to auth state change in App.js
-      console.log("[LOGIN] User logged in successfully, navigation handled by App.js");
+      // Navigation will be handled by the AuthContext
     } catch (error) {
-      Alert.alert("Login Failed", error.message || "Invalid credentials. Please try again.");
+      Alert.alert("Login Failed", error.message || "Invalid email or password");
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   };
 
@@ -32,10 +58,20 @@ const LoginScreen = ({ navigation }) => {
         <ScrollView contentContainerStyle={styles.scrollViewContent}>
           <Text style={styles.title}>Welcome Back</Text>
           <Text style={styles.subtitle}>Log in to your account</Text>
-          <StyledTextInput label="Email Address" value={email} onChangeText={setEmail} placeholder="Enter your email" keyboardType="email-address" autoCapitalize="none" />
+                    <StyledTextInput
+            placeholder="Enter your email address"
+            value={email}
+            onChangeText={handleEmailChange}
+            keyboardType="email-address"
+            autoCapitalize="none"
+            autoCompleteType="email"
+          />
+          {emailError ? (
+            <Text style={styles.errorText}>{emailError}</Text>
+          ) : null}
           <StyledTextInput label="Password" value={password} onChangeText={setPassword} placeholder="Enter your password" secureTextEntry />
-          <TouchableOpacity style={styles.button} onPress={handleLogin} disabled={loading}>
-            {loading ? <ActivityIndicator color="#FFF" /> : <Text style={styles.buttonText}>Log In</Text>}
+          <TouchableOpacity style={styles.button} onPress={handleLogin} disabled={isLoading}>
+            {isLoading ? <ActivityIndicator color="#FFF" /> : <Text style={styles.buttonText}>Log In</Text>}
           </TouchableOpacity>
           
           <View style={styles.linkContainer}>
@@ -60,6 +96,11 @@ const styles = StyleSheet.create({
   linkContainer: { flexDirection: 'row', justifyContent: 'center', marginTop: 20 },
   linkText: { fontSize: 16, color: '#7f8c8d' },
   linkButton: { fontSize: 16, color: '#E0BBE4', fontWeight: 'bold' },
+  errorText: {
+    color: "#e74c3c",
+    fontSize: 12,
+    marginTop: 5,
+    marginLeft: 5,
+  },
 });
 
-export default LoginScreen;

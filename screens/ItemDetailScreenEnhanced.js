@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { 
   View, Text, StyleSheet, ScrollView, TouchableOpacity, 
-  Alert, ActivityIndicator, Dimensions, FlatList 
+  Alert, ActivityIndicator, Dimensions, FlatList, Switch, Image 
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Image } from 'expo-image'; // Using expo-image for better performance
 import { Ionicons } from '@expo/vector-icons';
 import api from '../utils/api';
 import { useAuth } from '../context/AuthContext';
@@ -22,10 +21,13 @@ const ItemDetailScreenEnhanced = ({ route, navigation }) => {
   const [checkingRequest, setCheckingRequest] = useState(true);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [chatLoading, setChatLoading] = useState(false);
+  const [itemData, setItemData] = useState(item);
   
-  // Handle both old and new image formats
-  const images = item.images && item.images.length > 0 ? item.images : [item.imageUrl];
-  const featuredIndex = item.featuredImageIndex || 0;
+  // Handle both old and new image formats - use images array if available, fallback to single imageUrl
+  const imageGallery = itemData.images && itemData.images.length > 0 
+    ? itemData.images 
+    : [itemData.imageUrl].filter(Boolean);
+  const featuredIndex = itemData.featuredImageIndex || 0;
   
   // Check if the logged-in user is the owner of the item
   // Handle both cases: item.user as object {_id, name} or as string ID
@@ -182,15 +184,35 @@ const ItemDetailScreenEnhanced = ({ route, navigation }) => {
     setCurrentImageIndex(currentIndex);
   };
 
+  const handleAvailabilityToggle = async () => {
+    try {
+      setLoading(true);
+      const updatedItem = await api(`/items/${itemData._id}`, 'PUT', {
+        isAvailable: !itemData.isAvailable
+      });
+      setItemData(updatedItem);
+      Alert.alert(
+        "Status Updated", 
+        `Item is now ${updatedItem.isAvailable ? 'available' : 'unavailable'} for ${itemData.listingType === 'rent' ? 'rent' : 'sale'}.`
+      );
+    } catch (error) {
+      console.error('[AVAILABILITY_TOGGLE] Error:', error);
+      Alert.alert("Error", "Could not update availability status.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const renderImageItem = ({ item: imageUrl, index }) => (
     <View style={styles.imageContainer}>
       <Image
-        source={{ uri: imageUrl }}
+        source={{ 
+          uri: imageUrl || 'https://dummyimage.com/600x400/E0BBE4/4A235A&text=No+Image'
+        }}
         style={styles.image}
-        contentFit="cover"
-        placeholder="https://dummyimage.com/600x400/E0BBE4/4A235A&text=Loading"
+        resizeMode="cover"
       />
-      {index === featuredIndex && images.length > 1 && (
+      {index === featuredIndex && imageGallery.length > 1 && (
         <View style={styles.featuredBadge}>
           <Ionicons name="star" size={16} color="white" />
           <Text style={styles.featuredText}>Featured</Text>
@@ -200,11 +222,11 @@ const ItemDetailScreenEnhanced = ({ route, navigation }) => {
   );
 
   const renderImageIndicator = () => {
-    if (images.length <= 1) return null;
+    if (imageGallery.length <= 1) return null;
     
     return (
       <View style={styles.imageIndicatorContainer}>
-        {images.map((_, index) => (
+        {imageGallery.map((_, index) => (
           <View
             key={index}
             style={[
@@ -223,7 +245,7 @@ const ItemDetailScreenEnhanced = ({ route, navigation }) => {
         {/* Enhanced Image Section with Slideshow */}
         <View style={styles.imageSection}>
           <FlatList
-            data={images}
+            data={imageGallery}
             renderItem={renderImageItem}
             keyExtractor={(item, index) => `image-${index}`}
             horizontal
@@ -239,10 +261,10 @@ const ItemDetailScreenEnhanced = ({ route, navigation }) => {
           </TouchableOpacity>
           
           {/* Image Counter */}
-          {images.length > 1 && (
+          {imageGallery.length > 1 && (
             <View style={styles.imageCounter}>
               <Text style={styles.imageCounterText}>
-                {currentImageIndex + 1} / {images.length}
+                {currentImageIndex + 1} / {imageGallery.length}
               </Text>
             </View>
           )}
@@ -310,14 +332,77 @@ const ItemDetailScreenEnhanced = ({ route, navigation }) => {
             )}
           </View>
 
-          <Text style={styles.name}>{item.name}</Text>
-          <Text style={styles.category}>{item.category}</Text>
-          
+          {/* Item Header */}
+          <View style={styles.headerSection}>
+            <Text style={styles.name}>{itemData.name}</Text>
+            <Text style={styles.category}>{itemData.category}</Text>
+            
+            {/* Availability Status */}
+            <View style={styles.statusContainer}>
+              <View style={[
+                styles.statusBadge, 
+                itemData.isAvailable ? styles.availableBadge : styles.unavailableBadge
+              ]}>
+                <Text style={[
+                  styles.statusText,
+                  itemData.isAvailable ? styles.availableText : styles.unavailableText
+                ]}>
+                  {itemData.isAvailable ? '✅ Available' : '❌ Not Available'}
+                </Text>
+              </View>
+              
+              {/* Listing Type Badge */}
+              <View style={styles.listingTypeBadge}>
+                <Text style={styles.listingTypeText}>
+                  {itemData.listingType === 'rent' ? '🏷️ For Rent' : '💰 For Sale'}
+                </Text>
+              </View>
+            </View>
+          </View>
+
+          {/* Owner Section */}
+          <View style={styles.ownerSection}>
+            <Text style={styles.ownerLabel}>Listed by</Text>
+            <Text style={styles.ownerName}>
+              {typeof itemData.user === 'object' ? itemData.user.name : 'Unknown User'}
+            </Text>
+          </View>
+
           {/* Description Section */}
           <View style={styles.descriptionSection}>
             <Text style={styles.sectionTitle}>Description</Text>
-            <Text style={styles.description}>{item.description}</Text>
+            <Text style={styles.description}>{itemData.description}</Text>
           </View>
+
+          {/* Reason for Selling Section */}
+          {itemData.reasonForSelling && itemData.reasonForSelling.trim() && (
+            <View style={styles.reasonSection}>
+              <Text style={styles.sectionTitle}>
+                {itemData.listingType === 'rent' ? 'Reason for Renting' : 'Reason for Selling'}
+              </Text>
+              <Text style={styles.reasonText}>{itemData.reasonForSelling}</Text>
+            </View>
+          )}
+
+          {/* Owner Controls */}
+          {isOwner && (
+            <View style={styles.ownerControls}>
+              <Text style={styles.sectionTitle}>Item Management</Text>
+              
+              <View style={styles.availabilityToggle}>
+                <Text style={styles.toggleLabel}>
+                  Available for {itemData.listingType === 'rent' ? 'rent' : 'sale'}
+                </Text>
+                <Switch
+                  value={itemData.isAvailable}
+                  onValueChange={handleAvailabilityToggle}
+                  trackColor={{ false: '#CCC', true: '#E0BBE4' }}
+                  thumbColor={itemData.isAvailable ? '#957DAD' : '#FFF'}
+                  disabled={loading}
+                />
+              </View>
+            </View>
+          )}
 
           {/* Ratings Section */}
           <View style={styles.ratingsSection}>
@@ -825,6 +910,66 @@ const styles = StyleSheet.create({
     borderRadius: 25,
   },
   manageButtonText: { marginLeft: 6, fontSize: 16, color: '#957DAD', fontWeight: '500' },
+  // New styles for enhanced features
+  headerSection: { marginBottom: 15 },
+  statusContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 10,
+  },
+  statusBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 15,
+  },
+  availableBadge: { backgroundColor: '#E8F5E8' },
+  unavailableBadge: { backgroundColor: '#FFF2F2' },
+  statusText: { fontSize: 12, fontWeight: 'bold' },
+  availableText: { color: '#2E7D32' },
+  unavailableText: { color: '#D32F2F' },
+  listingTypeBadge: {
+    backgroundColor: '#F3E5F5',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 15,
+  },
+  listingTypeText: { fontSize: 12, fontWeight: 'bold', color: '#7B1FA2' },
+  ownerSection: {
+    marginBottom: 20,
+    padding: 15,
+    backgroundColor: '#F8F9FA',
+    borderRadius: 10,
+  },
+  ownerLabel: { fontSize: 14, color: '#7f8c8d', marginBottom: 5 },
+  ownerName: { fontSize: 18, fontWeight: 'bold', color: '#2c3e50' },
+  reasonSection: { marginBottom: 20 },
+  reasonText: {
+    fontSize: 16,
+    color: '#7f8c8d',
+    fontStyle: 'italic',
+    lineHeight: 24,
+  },
+  ownerControls: {
+    marginBottom: 20,
+    padding: 15,
+    backgroundColor: '#FFF9E6',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#FFE0B2',
+  },
+  availabilityToggle: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  toggleLabel: {
+    fontSize: 16,
+    color: '#34495e',
+    fontWeight: '500',
+  },
 });
 
 export default ItemDetailScreenEnhanced;

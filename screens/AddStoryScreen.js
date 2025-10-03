@@ -49,7 +49,7 @@ const AddStoryScreen = ({ navigation }) => {
       );
     try {
       let result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: "Images",
+        mediaTypes: ImagePicker.MediaType.Images,
         allowsEditing: true,
         aspect: [9, 16],
         quality: 0.7,

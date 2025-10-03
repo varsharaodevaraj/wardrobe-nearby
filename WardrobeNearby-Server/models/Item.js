@@ -44,6 +44,16 @@ const ItemSchema = new Schema({
     default: "per day" 
   }, // How the rent is measured
 
+  reasonForSelling: {
+    type: String,
+    required: false
+  }, // Optional reason why the owner is selling/renting
+
+  isAvailable: {
+    type: Boolean,
+    default: true
+  }, // Whether the item is currently available for rent/sale
+
   user: { 
     type: Schema.Types.ObjectId, 
     ref: "User", 

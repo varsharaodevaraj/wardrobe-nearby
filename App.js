@@ -42,8 +42,8 @@ function MainFlow() {
   return (
     <MainStack.Navigator screenOptions={{ headerShown: false }}>
       <MainStack.Screen name="MainTabs" component={MainTabs} />
-      <MainStack.Screen name="ItemDetail" component={ItemDetailScreen} />
-      <MainStack.Screen name="ItemDetailEnhanced" component={ItemDetailScreenEnhanced} />
+      <MainStack.Screen name="ItemDetail" component={ItemDetailScreenEnhanced} />
+      <MainStack.Screen name="ItemDetailBasic" component={ItemDetailScreen} />
       <MainStack.Screen name="EditItem" component={EditItemScreen} />
       <MainStack.Screen name="AddStory" component={AddStoryScreen} options={{ presentation: 'modal' }} />
       <MainStack.Screen name="StoryViewer" component={StoryViewerScreen} options={{ presentation: 'modal' }} />
