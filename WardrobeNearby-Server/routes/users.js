@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const User = require('../models/User');
+const Item = require('../models/Item'); // Make sure to require the Item model
 const auth = require('../middleware/auth');
 
 // @route   GET /api/users/profile/:userId
@@ -10,8 +11,7 @@ router.get('/profile/:userId', auth, async (req, res) => {
   try {
     const user = await User.findById(req.params.userId)
       .select('-password')
-      .populate('followers', 'name profileImage')
-      .populate('following', 'name profileImage');
+      .populate('wishlist');
     
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
@@ -20,115 +20,81 @@ router.get('/profile/:userId', auth, async (req, res) => {
     res.json(user);
   } catch (error) {
     console.error('Error fetching user profile:', error);
-    res.status(500).send('Server Error');
+    res.status(500).json({ message: 'Server Error' });
   }
 });
 
-// @route   POST /api/users/follow/:userId
-// @desc    Follow a user
+// @route   POST /api/users/wishlist/:itemId
+// @desc    Add an item to the wishlist
 // @access  Private
-router.post('/follow/:userId', auth, async (req, res) => {
+router.post('/wishlist/:itemId', auth, async (req, res) => {
   try {
-    const userToFollow = await User.findById(req.params.userId);
+    const item = await Item.findById(req.params.itemId);
+    if (!item) {
+        return res.status(404).json({ message: 'Item not found' });
+    }
+
     const currentUser = await User.findById(req.user.id);
-
-    if (!userToFollow) {
-      return res.status(404).json({ message: 'User not found' });
+    if (!currentUser) {
+        return res.status(404).json({ message: 'User not found' });
     }
 
-    if (req.params.userId === req.user.id) {
-      return res.status(400).json({ message: 'You cannot follow yourself' });
+    if (currentUser.wishlist.some(id => id.equals(req.params.itemId))) {
+      return res.status(400).json({ message: 'Item already in wishlist' });
     }
 
-    // Check if already following
-    if (currentUser.following.includes(req.params.userId)) {
-      return res.status(400).json({ message: 'Already following this user' });
-    }
-
-    // Add to following/followers lists
-    currentUser.following.push(req.params.userId);
-    userToFollow.followers.push(req.user.id);
-
+    currentUser.wishlist.push(req.params.itemId);
     await currentUser.save();
-    await userToFollow.save();
 
-    res.json({ message: 'User followed successfully' });
+    res.json({ message: 'Item added to wishlist' });
   } catch (error) {
-    console.error('Error following user:', error);
-    res.status(500).send('Server Error');
+    console.error('Error adding to wishlist:', error);
+    res.status(500).json({ message: 'Server Error' });
   }
 });
 
-// @route   POST /api/users/unfollow/:userId
-// @desc    Unfollow a user
+// @route   DELETE /api/users/wishlist/:itemId
+// @desc    Remove an item from the wishlist
 // @access  Private
-router.post('/unfollow/:userId', auth, async (req, res) => {
+router.delete('/wishlist/:itemId', auth, async (req, res) => {
   try {
-    const userToUnfollow = await User.findById(req.params.userId);
     const currentUser = await User.findById(req.user.id);
-
-    if (!userToUnfollow) {
-      return res.status(404).json({ message: 'User not found' });
+    if (!currentUser) {
+        return res.status(404).json({ message: 'User not found' });
     }
 
-    // Check if not following
-    if (!currentUser.following.includes(req.params.userId)) {
-      return res.status(400).json({ message: 'Not following this user' });
-    }
-
-    // Remove from following/followers lists
-    currentUser.following = currentUser.following.filter(
-      id => id.toString() !== req.params.userId
-    );
-    userToUnfollow.followers = userToUnfollow.followers.filter(
-      id => id.toString() !== req.user.id
+    const initialLength = currentUser.wishlist.length;
+    currentUser.wishlist = currentUser.wishlist.filter(
+      (itemId) => !itemId.equals(req.params.itemId)
     );
 
+    if (currentUser.wishlist.length === initialLength) {
+        return res.status(404).json({ message: 'Item not found in wishlist' });
+    }
+
     await currentUser.save();
-    await userToUnfollow.save();
 
-    res.json({ message: 'User unfollowed successfully' });
+    res.json({ message: 'Item removed from wishlist' });
   } catch (error) {
-    console.error('Error unfollowing user:', error);
-    res.status(500).send('Server Error');
+    console.error('Error removing from wishlist:', error);
+    res.status(500).json({ message: 'Server Error' });
   }
 });
 
-// @route   GET /api/users/following-status/:userId
-// @desc    Check if current user is following another user
-// @access  Private
-router.get('/following-status/:userId', auth, async (req, res) => {
-  try {
-    const currentUser = await User.findById(req.user.id);
-    const isFollowing = currentUser.following.includes(req.params.userId);
-    
-    res.json({ isFollowing });
-  } catch (error) {
-    console.error('Error checking following status:', error);
-    res.status(500).send('Server Error');
-  }
-});
 
-// @route   GET /api/users/feed
-// @desc    Get items from followed users (activity feed)
+// @route   GET /api/users/wishlist
+// @desc    Get the current user's wishlist
 // @access  Private
-router.get('/feed', auth, async (req, res) => {
+router.get('/wishlist', auth, async (req, res) => {
   try {
-    const currentUser = await User.findById(req.user.id);
-    
-    // Get items from users that the current user follows
-    const Item = require('../models/Item');
-    const feedItems = await Item.find({ 
-      user: { $in: currentUser.following } 
-    })
-    .populate('user', 'name profileImage')
-    .sort({ date: -1 })
-    .limit(50);
-
-    res.json(feedItems);
+    const user = await User.findById(req.user.id).populate('wishlist');
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    res.json(user.wishlist);
   } catch (error) {
-    console.error('Error fetching user feed:', error);
-    res.status(500).send('Server Error');
+    console.error('Error fetching wishlist:', error);
+    res.status(500).json({ message: 'Server Error' });
   }
 });
 

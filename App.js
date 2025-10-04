@@ -6,7 +6,7 @@ import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-cont
 import { Ionicons } from '@expo/vector-icons';
 
 import { AuthProvider, useAuth } from "./context/AuthContext";
-import { FollowProvider } from "./context/FollowContext";
+import { WishlistProvider } from "./context/WishlistContext";
 import { RentalProvider } from "./context/RentalContext";
 import { ChatProvider } from "./context/ChatContext";
 import { NotificationProvider } from "./context/NotificationContext";
@@ -20,25 +20,20 @@ import HomeScreen from "./screens/HomeScreen";
 import AddItemScreen from "./screens/AddItemScreen";
 import ItemDetailScreen from "./screens/ItemDetailScreen";
 import ProfileScreen from "./screens/ProfileScreen";
-import AddStoryScreen from "./screens/AddStoryScreen";
-import StoryViewerScreen from "./screens/StoryViewerScreen";
 import EditItemScreen from "./screens/EditItemScreen";
 import ChatListScreen from "./screens/ChatListScreen";
 import ChatScreen from "./screens/ChatScreen";
 import MyRentalsScreen from "./screens/MyRentalsScreen";
+import WishlistScreen from "./screens/WishlistScreen";
+import MyListingsScreen from "./screens/MyListingsScreen"; // NEW IMPORT
 
-// Enhanced screens (optional - for testing new features)
-import AddItemScreenEnhanced from "./screens/AddItemScreenEnhanced";
+// Enhanced screens
 import ItemDetailScreenEnhanced from "./screens/ItemDetailScreenEnhanced";
-
-// Import simple connectivity test
-import { quickNetworkCheck } from "./config/simpleNetworkTest";
 
 const AuthStack = createNativeStackNavigator();
 const MainStack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
-// This stack contains the main app tabs and all screens accessible to a logged-in user
 function MainFlow() {
   return (
     <MainStack.Navigator screenOptions={{ headerShown: false }}>
@@ -46,15 +41,14 @@ function MainFlow() {
       <MainStack.Screen name="ItemDetail" component={ItemDetailScreenEnhanced} />
       <MainStack.Screen name="ItemDetailBasic" component={ItemDetailScreen} />
       <MainStack.Screen name="EditItem" component={EditItemScreen} />
-      <MainStack.Screen name="AddStory" component={AddStoryScreen} options={{ presentation: 'modal' }} />
-      <MainStack.Screen name="StoryViewer" component={StoryViewerScreen} options={{ presentation: 'modal' }} />
       <MainStack.Screen name="Chat" component={ChatScreen} />
       <MainStack.Screen name="MyRentals" component={MyRentalsScreen} />
+      <MainStack.Screen name="Wishlist" component={WishlistScreen} />
+      <MainStack.Screen name="MyListings" component={MyListingsScreen} />
     </MainStack.Navigator>
   );
 }
 
-// This is the main Tab Navigator for logged-in users
 function MainTabs() {
   const insets = useSafeAreaInsets();
 
@@ -109,7 +103,6 @@ function MainTabs() {
   );
 }
 
-// This component decides whether to show the auth flow or the main app
 function AppNavigator() {
   const { user } = useAuth();
   return (
@@ -127,29 +120,12 @@ function AppNavigator() {
   );
 }
 
-// This is the root component of your entire application
 export default function App() {
-  // Run connectivity test on app startup
-  React.useEffect(() => {
-    console.log('🚀 [APP] WardrobeNearby starting up...');
-    
-    // Simple network connectivity test
-    setTimeout(() => {
-      quickNetworkCheck().then(result => {
-        if (result.success) {
-          console.log('🎉 [APP] Network connectivity verified on startup');
-        } else {
-          console.warn('⚠️  [APP] Network connectivity issues on startup:', result.error);
-        }
-      });
-    }, 2000);
-  }, []);
-
   return (
     <SafeAreaProvider>
       <ErrorBoundary>
         <AuthProvider>
-          <FollowProvider>
+          <WishlistProvider>
             <RentalProvider>
               <NotificationProvider>
                 <ChatProvider>
@@ -157,7 +133,7 @@ export default function App() {
                 </ChatProvider>
               </NotificationProvider>
             </RentalProvider>
-          </FollowProvider>
+          </WishlistProvider>
         </AuthProvider>
       </ErrorBoundary>
     </SafeAreaProvider>

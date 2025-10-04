@@ -4,7 +4,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import api from '../utils/api'; // Import our secure API client
 import { useAuth } from '../context/AuthContext'; // To check if the user is the owner
-import { useFollow } from '../context/FollowContext'; // For global follow management
 import { useRental } from '../context/RentalContext'; // For global rental management
 
 const ItemDetailScreen = ({ route, navigation }) => {

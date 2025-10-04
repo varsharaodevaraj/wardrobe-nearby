@@ -15,6 +15,21 @@ const ItemSchema = new Schema({
     type: String, 
     required: true 
   },
+  size: {
+    type: String,
+    required: false
+  },
+  color: {
+    type: String,
+    required: false
+  },
+  occasion: {
+    type: String,
+    required: false
+  },
+  unavailableDates: [{
+    type: String // Storing dates as strings in "YYYY-MM-DD" format
+  }],
   price_per_day: { 
     type: Number, 
     required: true 

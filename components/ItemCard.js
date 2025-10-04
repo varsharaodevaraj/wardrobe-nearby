@@ -2,7 +2,6 @@ import React, { useState, useCallback } from 'react';
 import { View, Text, StyleSheet, Image, TouchableOpacity } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import { useFollow } from '../context/FollowContext';
 import { useAuth } from '../context/AuthContext';
 import StarRating from './StarRating';
 
@@ -10,13 +9,12 @@ import StarRating from './StarRating';
 const ItemCard = React.memo(({ item }) => {
   const navigation = useNavigation();
   const { user } = useAuth();
-  const { isFollowing } = useFollow();
   const [imageError, setImageError] = useState(false);
   
   // Check if current user is the owner
   const isOwner = user?.id === (typeof item.user === 'object' ? item.user._id : item.user);
-  const itemOwnerId = typeof item.user === 'object' ? item.user._id : item.user;
   const ownerName = typeof item.user === 'object' ? item.user.name : 'Owner';
+  const ownerStatus = typeof item.user === 'object' ? item.user.status : 'regular';
 
   // --- HANDLE PRESS EVENT ---
   const handlePress = useCallback(() => {
@@ -67,15 +65,15 @@ const ItemCard = React.memo(({ item }) => {
           </View>
         </View>
         
-        {/* Owner info with follow status */}
+        {/* Owner info with super lender status */}
         <View style={styles.ownerContainer}>
           <View style={styles.ownerInfo}>
             <Ionicons name="person-circle-outline" size={16} color="#7f8c8d" />
             <Text style={styles.ownerName}>{ownerName}</Text>
-            {!isOwner && isFollowing(itemOwnerId) && (
-              <View style={styles.followingIndicator}>
-                <Ionicons name="checkmark-circle" size={14} color="#27AE60" />
-                <Text style={styles.followingText}>Following</Text>
+            {ownerStatus === 'super-lender' && (
+              <View style={styles.superLenderBadge}>
+                <Ionicons name="star" size={12} color="#FFD700" />
+                <Text style={styles.superLenderText}>Super Lender</Text>
               </View>
             )}
             {isOwner && (
@@ -217,17 +215,19 @@ const styles = StyleSheet.create({
         marginLeft: 4,
         flex: 1,
     },
-    followingIndicator: {
+    superLenderBadge: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#E8F5E8',
+        backgroundColor: '#FFFBEA',
         paddingHorizontal: 6,
         paddingVertical: 2,
         borderRadius: 8,
+        borderColor: '#FFD700',
+        borderWidth: 1,
     },
-    followingText: {
+    superLenderText: {
         fontSize: 10,
-        color: '#27AE60',
+        color: '#B7950B',
         marginLeft: 2,
         fontWeight: '500',
     },

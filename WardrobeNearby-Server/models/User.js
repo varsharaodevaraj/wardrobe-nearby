@@ -15,14 +15,15 @@ const UserSchema = new mongoose.Schema({
     type: String, 
     required: true 
   },
-  followers: [{ 
+  wishlist: [{ 
     type: mongoose.Schema.Types.ObjectId, 
-    ref: "User" 
+    ref: "Item" 
   }],
-  following: [{ 
-    type: mongoose.Schema.Types.ObjectId, 
-    ref: "User"  // must match the model name u are giving 
-  }],
+  status: {
+    type: String,
+    enum: ['regular', 'super-lender', 'super-renter'],
+    default: 'regular'
+  },
   profileImage: { 
     type: String 
   },

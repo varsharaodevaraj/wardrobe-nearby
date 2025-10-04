@@ -2,51 +2,38 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-const MessageBubble = ({ message, isOwn, user, showTime = false }) => {
-  // Format time display
+const MessageBubble = ({ message, isOwn }) => {
   const formatTime = (timestamp) => {
-    const date = new Date(timestamp);
-    const now = new Date();
-    const diffInHours = (now - date) / (1000 * 60 * 60);
-    
-    if (diffInHours < 24) {
-      // Same day - show time
-      return date.toLocaleTimeString('en-US', {
-        hour: 'numeric',
-        minute: '2-digit',
-        hour12: true
-      });
-    } else if (diffInHours < 48) {
-      // Yesterday
-      return 'Yesterday';
-    } else {
-      // Show date
-      return date.toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric'
-      });
-    }
+    if (!timestamp) return '';
+    return new Date(timestamp).toLocaleTimeString('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true
+    });
   };
 
-  // Get status icon for sent messages
   const getStatusIcon = () => {
     if (!isOwn) return null;
+    let iconName = 'checkmark';
+    let iconColor = 'rgba(255, 255, 255, 0.7)';
     
     switch (message.status) {
       case 'sending':
-        return <Ionicons name="time-outline" size={14} color="#8E8E93" />;
+        iconName = 'time-outline';
+        break;
       case 'sent':
-        return <Ionicons name="checkmark" size={14} color="#8E8E93" />;
-      case 'delivered':
-        return <Ionicons name="checkmark-done" size={14} color="#8E8E93" />;
+        iconName = 'checkmark';
+        break;
       case 'read':
-        return <Ionicons name="checkmark-done" size={14} color="#4A90E2" />;
+        iconName = 'checkmark-done';
+        iconColor = '#4A90E2';
+        break;
       default:
-        return null;
+        iconName = 'checkmark';
     }
+    return <Ionicons name={iconName} size={14} color={iconColor} style={{ marginLeft: 4 }} />;
   };
 
-  // Handle system messages (like "User joined chat")
   if (message.messageType === 'system') {
     return (
       <View style={styles.systemMessageContainer}>
@@ -56,42 +43,16 @@ const MessageBubble = ({ message, isOwn, user, showTime = false }) => {
   }
 
   return (
-    <View style={[
-      styles.messageContainer, 
-      isOwn ? styles.ownMessage : styles.otherMessage
-    ]}>
-      <View style={[
-        styles.messageBubble,
-        isOwn ? styles.ownBubble : styles.otherBubble
-      ]}>
-        {/* Show sender name for received messages in group chats */}
-        {!isOwn && message.sender?.name && (
-          <Text style={styles.senderName}>{message.sender.name}</Text>
-        )}
-        
-        {/* Message content */}
-        <Text style={[
-          styles.messageText,
-          isOwn ? styles.ownMessageText : styles.otherMessageText
-        ]}>
+    <View style={[styles.messageRow, isOwn ? styles.ownMessageRow : styles.otherMessageRow]}>
+      <View style={[styles.messageBubble, isOwn ? styles.ownBubble : styles.otherBubble]}>
+        <Text style={isOwn ? styles.ownMessageText : styles.otherMessageText}>
           {message.content}
         </Text>
-        
-        {/* Time and status row */}
-        <View style={styles.messageFooter}>
-          <Text style={[
-            styles.timeText,
-            isOwn ? styles.ownTimeText : styles.otherTimeText
-          ]}>
+        <View style={styles.footer}>
+          <Text style={isOwn ? styles.ownTimeText : styles.otherTimeText}>
             {formatTime(message.timestamp)}
           </Text>
-          
-          {/* Status icon for sent messages */}
-          {isOwn && (
-            <View style={styles.statusIcon}>
-              {getStatusIcon()}
-            </View>
-          )}
+          {isOwn && getStatusIcon()}
         </View>
       </View>
     </View>
@@ -99,89 +60,63 @@ const MessageBubble = ({ message, isOwn, user, showTime = false }) => {
 };
 
 const styles = StyleSheet.create({
-  messageContainer: {
+  messageRow: {
     flexDirection: 'row',
-    marginVertical: 2,
-    paddingHorizontal: 16,
+    marginVertical: 5,
   },
-  ownMessage: {
+  ownMessageRow: {
     justifyContent: 'flex-end',
   },
-  otherMessage: {
+  otherMessageRow: {
     justifyContent: 'flex-start',
   },
   messageBubble: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 20,
     maxWidth: '80%',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 18,
-    elevation: 1,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 1,
   },
   ownBubble: {
-    backgroundColor: '#957DAD', // Match app's primary purple
-    borderBottomRightRadius: 4,
+    backgroundColor: '#957DAD',
+    borderBottomRightRadius: 5,
   },
   otherBubble: {
-    backgroundColor: '#F8F9FA', // Match app's light background
-    borderColor: '#E9ECEF',
-    borderWidth: 1,
-    borderBottomLeftRadius: 4,
-  },
-  senderName: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#957DAD', // Match app's primary color
-    marginBottom: 2,
-  },
-  messageText: {
-    fontSize: 16,
-    lineHeight: 20,
+    backgroundColor: '#FFFFFF',
+    borderBottomLeftRadius: 5,
   },
   ownMessageText: {
     color: '#FFFFFF',
+    fontSize: 16,
   },
   otherMessageText: {
-    color: '#2c3e50', // Match app's text color
+    color: '#2c3e50',
+    fontSize: 16,
   },
-  messageFooter: {
+  footer: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-end',
-    marginTop: 4,
-    minHeight: 16,
-  },
-  timeText: {
-    fontSize: 11,
-    marginRight: 4,
+    marginTop: 5,
   },
   ownTimeText: {
     color: 'rgba(255, 255, 255, 0.7)',
+    fontSize: 11,
   },
   otherTimeText: {
-    color: '#7f8c8d', // Match app's secondary text color
+    color: '#7f8c8d',
+    fontSize: 11,
   },
-  statusIcon: {
-    marginLeft: 2,
-  },
-  
-  // System message styles
   systemMessageContainer: {
     alignItems: 'center',
-    marginVertical: 8,
+    marginVertical: 10,
   },
   systemMessageText: {
-    fontSize: 13,
+    fontSize: 12,
     color: '#7f8c8d',
-    backgroundColor: 'rgba(149, 125, 173, 0.1)', // Light purple tint
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 16,
-    textAlign: 'center',
-    fontStyle: 'italic',
+    backgroundColor: '#E9ECEF',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
   },
 });
 

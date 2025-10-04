@@ -130,15 +130,17 @@ const StoryViewerScreen = ({ route, navigation }) => {
       </View>
 
       {currentStory.linkedItem && (
-        <TouchableOpacity style={styles.linkButton} onPress={handleViewItem}>
-          <Ionicons
-            name="pricetag-outline"
-            size={20}
-            color="#2c3e50"
-            style={{ marginRight: 10 }}
-          />
-          <Text style={styles.linkButtonText}>View Item</Text>
-        </TouchableOpacity>
+        <View style={styles.getTheLookContainer}>
+          <Text style={styles.getTheLookTitle}>Get The Look</Text>
+          <TouchableOpacity style={styles.linkButton} onPress={handleViewItem}>
+            <Image source={{ uri: currentStory.linkedItem.imageUrl }} style={styles.linkedItemImage} />
+            <View style={styles.linkedItemInfo}>
+              <Text style={styles.linkedItemName}>{currentStory.linkedItem.name}</Text>
+              <Text style={styles.linkedItemPrice}>₹{currentStory.linkedItem.price_per_day}/day</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color="#2c3e50" />
+          </TouchableOpacity>
+        </View>
       )}
     </SafeAreaView>
   );
@@ -188,19 +190,44 @@ const styles = StyleSheet.create({
     flexDirection: "row",
   },
   navArea: { flex: 1 },
-  linkButton: {
-    position: "absolute",
+  getTheLookContainer: {
+    position: 'absolute',
     bottom: 50,
-    left: "25%",
-    right: "25%",
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.9)",
-    paddingVertical: 12,
-    borderRadius: 30,
+    left: 20,
+    right: 20,
   },
-  linkButtonText: { fontSize: 16, fontWeight: "bold", color: "#2c3e50" },
+  getTheLookTitle: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 10,
+    textAlign: 'center',
+  },
+  linkButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    padding: 10,
+    borderRadius: 12,
+  },
+  linkedItemImage: {
+    width: 50,
+    height: 50,
+    borderRadius: 8,
+    marginRight: 10,
+  },
+  linkedItemInfo: {
+    flex: 1,
+  },
+  linkedItemName: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#2c3e50',
+  },
+  linkedItemPrice: {
+    fontSize: 12,
+    color: '#7f8c8d',
+  },
 });
 
 export default StoryViewerScreen;
