@@ -3,18 +3,23 @@ import { View, Text, StyleSheet, Image, TouchableOpacity } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
+import { useRental } from '../context/RentalContext';
 import StarRating from './StarRating';
 
 // We receive 'item' as a prop.
 const ItemCard = React.memo(({ item }) => {
   const navigation = useNavigation();
   const { user } = useAuth();
+  const { getRentalStatus } = useRental();
   const [imageError, setImageError] = useState(false);
   
   // Check if current user is the owner
   const isOwner = user?.id === (typeof item.user === 'object' ? item.user._id : item.user);
   const ownerName = typeof item.user === 'object' ? item.user.name : 'Owner';
   const ownerStatus = typeof item.user === 'object' ? item.user.status : 'regular';
+  
+  // Check if user has already requested this item
+  const hasRequested = !isOwner && getRentalStatus(item._id);
 
   // --- HANDLE PRESS EVENT ---
   const handlePress = useCallback(() => {
@@ -79,6 +84,14 @@ const ItemCard = React.memo(({ item }) => {
             {isOwner && (
               <View style={styles.ownItemIndicator}>
                 <Text style={styles.ownItemText}>Your Item</Text>
+              </View>
+            )}
+            {hasRequested && (
+              <View style={styles.requestedIndicator}>
+                <Ionicons name="checkmark-circle" size={12} color="#27AE60" />
+                <Text style={styles.requestedText}>
+                  {item.listingType === 'sell' ? 'Purchase Requested' : 'Rental Requested'}
+                </Text>
               </View>
             )}
           </View>
@@ -241,6 +254,21 @@ const styles = StyleSheet.create({
         fontSize: 10,
         color: '#666',
         fontWeight: '500',
+    },
+    requestedIndicator: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#E8F5E8',
+        paddingHorizontal: 6,
+        paddingVertical: 2,
+        borderRadius: 8,
+        marginLeft: 8,
+    },
+    requestedText: {
+        fontSize: 9,
+        color: '#27AE60',
+        fontWeight: '600',
+        marginLeft: 3,
     },
     statusContainer: {
         marginVertical: 5,

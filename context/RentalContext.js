@@ -1,9 +1,11 @@
-import React, { createContext, useContext, useState, useCallback } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import { useAuth } from './AuthContext';
 import api from '../utils/api';
 
 const RentalContext = createContext();
 
 export const RentalProvider = ({ children }) => {
+  const { user } = useAuth();
   // Track rental request states for different items
   const [rentalStates, setRentalStates] = useState(new Map());
   const [loading, setLoading] = useState(false);
@@ -32,6 +34,15 @@ export const RentalProvider = ({ children }) => {
     try {
       setLoading(true);
       
+      // Check if already requested first
+      const currentStatus = rentalStates.get(itemId);
+      if (currentStatus) {
+        return { 
+          success: false, 
+          message: 'You have already sent a request for this item. Please wait for the owner to respond.' 
+        };
+      }
+      
       const requestData = {
         itemId,
         customMessage: customMessage.trim() || 'Hi! I\'m interested in renting this item.'
@@ -46,6 +57,12 @@ export const RentalProvider = ({ children }) => {
       return { success: true, message: 'Rental request sent successfully!' };
     } catch (error) {
       console.error('[RENTAL_CONTEXT] Error submitting rental request:', error);
+      
+      // If the error is about already requesting, update our local state
+      if (error.message && error.message.includes('already sent a request')) {
+        setRentalStates(prev => new Map(prev).set(itemId, true));
+      }
+      
       return { 
         success: false, 
         message: error.message || 'Failed to send rental request. Please try again.' 
@@ -53,7 +70,7 @@ export const RentalProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [rentalStates]);
 
   // Get rental status for a specific item
   const getRentalStatus = useCallback((itemId) => {
@@ -89,6 +106,16 @@ export const RentalProvider = ({ children }) => {
       setLoading(false);
     }
   }, []);
+
+  // Load rental statuses when user changes
+  useEffect(() => {
+    if (user) {
+      loadAllRentalStatuses();
+    } else {
+      // Clear rental states when user logs out
+      setRentalStates(new Map());
+    }
+  }, [user, loadAllRentalStatuses]);
 
   const value = {
     // State

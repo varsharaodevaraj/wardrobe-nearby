@@ -106,6 +106,13 @@ const ItemDetailScreen = ({ route, navigation }) => {
       return;
     }
 
+    // Check if already requested
+    const alreadyRequested = getRentalStatus(item._id);
+    if (alreadyRequested) {
+      Alert.alert("Already Requested", "You have already sent a request for this item. Please wait for the owner to respond.");
+      return;
+    }
+
     const isForSale = item.listingType === "sell";
     const actionText = isForSale ? "Purchase Request" : "Rental Request";
     const priceText = isForSale
@@ -362,14 +369,21 @@ const ItemDetailScreen = ({ route, navigation }) => {
             </View>
             <TouchableOpacity
               style={[
-                styles.rentButton,
-                (!itemData.isAvailable || loading) && styles.rentButtonDisabled,
+                getRentalStatus(item._id) ? styles.requestedButton : styles.rentButton,
+                (!itemData.isAvailable || loading || getRentalStatus(item._id)) && styles.rentButtonDisabled,
               ]}
               onPress={handleRentNow}
-              disabled={!itemData.isAvailable || loading}
+              disabled={!itemData.isAvailable || loading || getRentalStatus(item._id)}
             >
               {loading ? (
                 <ActivityIndicator color="white" />
+              ) : getRentalStatus(item._id) ? (
+                <>
+                  <Ionicons name="checkmark-circle" size={20} color="white" />
+                  <Text style={styles.requestedButtonText}>
+                    {item.listingType === "sell" ? "Purchase Requested" : "Rental Requested"}
+                  </Text>
+                </>
               ) : (
                 <Text style={styles.rentButtonText}>
                   {itemData.isAvailable
