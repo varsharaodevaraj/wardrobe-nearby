@@ -61,6 +61,11 @@ const ItemDetailScreen = ({ route, navigation }) => {
   }, [item._id, isOwner, checkFollowStatus, checkRentalStatus]);
 
   const handleRentNow = async () => {
+    if (!item.isAvailable) {
+      Alert.alert("Not Available", "This item is currently not available for rent or purchase.");
+      return;
+    }
+    
     console.log('🎯 [REGULAR] handleRentNow called');
     console.log('🎯 [REGULAR] isOwner:', isOwner);
     console.log('🎯 [REGULAR] item.listingType:', item.listingType);
@@ -262,15 +267,19 @@ const ItemDetailScreen = ({ route, navigation }) => {
               </TouchableOpacity>
             ) : (
               <TouchableOpacity 
-                style={[styles.rentButton, loading && styles.rentButtonDisabled]} 
+                style={[
+                  styles.rentButton, 
+                  loading && styles.rentButtonDisabled,
+                  !item.isAvailable && styles.rentButtonDisabled
+                ]} 
                 onPress={handleRentNow}
-                disabled={loading}
+                disabled={loading || !item.isAvailable}
               >
                 {loading ? (
                   <ActivityIndicator color="#4A235A" />
                 ) : (
                   <Text style={styles.rentButtonText}>
-                    {item.listingType === 'sell' ? 'Buy Now' : 'Rent Now'}
+                    {item.isAvailable ? (item.listingType === 'sell' ? 'Buy Now' : 'Rent Now') : 'Not Available'}
                   </Text>
                 )}
               </TouchableOpacity>
@@ -339,7 +348,7 @@ const styles = StyleSheet.create({
   price: { fontSize: 22, fontWeight: 'bold', color: '#2c3e50' },
   priceLabel: { fontSize: 14, color: '#7f8c8d', marginTop: 2 },
   rentButton: { backgroundColor: '#E0BBE4', paddingVertical: 15, paddingHorizontal: 30, borderRadius: 30, minWidth: 150, alignItems: 'center' },
-  rentButtonDisabled: { backgroundColor: '#CED4DA' },
+  rentButtonDisabled: { backgroundColor: '#CED4DA', opacity: 0.7 },
   rentButtonText: { color: '#4A235A', fontSize: 18, fontWeight: 'bold' },
   requestedButton: { backgroundColor: '#27AE60', paddingVertical: 15, paddingHorizontal: 30, borderRadius: 30, minWidth: 150, alignItems: 'center' },
   requestedButtonText: { color: '#FFFFFF', fontSize: 16, fontWeight: 'bold' },

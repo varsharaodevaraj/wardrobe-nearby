@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   Alert,
   Linking,
+  RefreshControl,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../context/AuthContext";
@@ -227,7 +228,7 @@ const MyListingsSection = ({ listings, onDelete, onNavigate }) => (
               style={styles.actionIcon}
               onPress={() => onNavigate("EditItem", { item })}
             >
-              <Ionicons name="pencil-outline" size={22} color="#3498DB" />
+              <Ionicons name="create-outline" size={22} color="#3498DB" />
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.actionIcon}
@@ -271,10 +272,11 @@ const ProfileScreen = () => {
     following: [],
   });
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
 
   const fetchData = useCallback(async () => {
     if (!user?.id) return;
-    setLoading(true);
     try {
       const [listingsData, incomingData, outgoingData, rentalsData, userProfileData] =
         await Promise.all([
@@ -314,8 +316,14 @@ const ProfileScreen = () => {
       });
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   }, [user?.id]);
+  
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    fetchData();
+  }, [fetchData]);
 
   useFocusEffect(
     useCallback(() => {
@@ -388,15 +396,12 @@ const ProfileScreen = () => {
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
-      <ScrollView>
+      <ScrollView
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+      >
         <View style={styles.header}>
-          <TouchableOpacity 
-            style={styles.refreshButton} 
-            onPress={fetchData}
-            disabled={loading}
-          >
-            <Ionicons name="refresh" size={24} color={loading ? "#CED4DA" : "#957DAD"} />
-          </TouchableOpacity>
           <View style={styles.avatar}>
             <Text style={styles.avatarText}>
               {user?.name?.charAt(0).toUpperCase()}
@@ -417,7 +422,7 @@ const ProfileScreen = () => {
           </TouchableOpacity>
         </View>
 
-        {loading ? (
+        {loading && !refreshing ? (
           <ActivityIndicator
             size="large"
             color="#957DAD"
@@ -466,14 +471,6 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: "#E9ECEF",
     position: "relative",
-  },
-  refreshButton: {
-    position: "absolute",
-    top: 30,
-    right: 20,
-    padding: 8,
-    borderRadius: 20,
-    backgroundColor: "#F8F9FA",
   },
   avatar: {
     width: 80,
@@ -591,7 +588,12 @@ const styles = StyleSheet.create({
   },
   contactButtonText: { color: "#FFFFFF", fontWeight: "bold", fontSize: 12 },
   listingActions: { flexDirection: "row", alignItems: "center" },
-  actionIcon: { padding: 5, marginLeft: 10 },
+  actionIcon: { 
+    padding: 8, 
+    borderRadius: 20, 
+    backgroundColor: '#f8f9fa',
+    marginLeft: 10 
+  },
   revokeButton: {
     paddingHorizontal: 12,
     paddingVertical: 6,
@@ -632,6 +634,7 @@ const styles = StyleSheet.create({
   },
   followersContainer: {
     marginTop: 10,
+    paddingHorizontal: 20,
   },
   followersTitle: {
     fontSize: 16,

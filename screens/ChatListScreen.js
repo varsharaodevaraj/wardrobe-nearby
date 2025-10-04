@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   Image,
   ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -20,10 +21,7 @@ const ChatListScreen = ({ navigation }) => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  const loadChats = async (isRefreshing = false) => {
-    if (isRefreshing) setRefreshing(true);
-    else setLoading(true);
-
+  const loadChats = useCallback(async () => {
     try {
       const chatsData = await api('/chats');
       setChats(chatsData);
@@ -33,7 +31,12 @@ const ChatListScreen = ({ navigation }) => {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, []);
+  
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    loadChats();
+  }, [loadChats]);
 
   // Refresh chats when screen comes into focus
   useFocusEffect(
@@ -41,10 +44,6 @@ const ChatListScreen = ({ navigation }) => {
       loadChats();
     }, [])
   );
-
-  const handleRefresh = () => {
-    loadChats(true);
-  };
 
   const formatLastMessageTime = (timestamp) => {
     const date = new Date(timestamp);
@@ -129,7 +128,7 @@ const ChatListScreen = ({ navigation }) => {
     </View>
   );
 
-  if (loading) {
+  if (loading && !refreshing) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.header}>
@@ -146,13 +145,6 @@ const ChatListScreen = ({ navigation }) => {
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Messages</Text>
-        <TouchableOpacity onPress={handleRefresh} disabled={refreshing}>
-          <Ionicons
-            name={refreshing ? "reload" : "refresh"}
-            size={24}
-            color="#2c3e50"
-          />
-        </TouchableOpacity>
       </View>
 
       <FlatList
@@ -161,8 +153,9 @@ const ChatListScreen = ({ navigation }) => {
         keyExtractor={(item) => item._id}
         contentContainerStyle={chats.length === 0 ? styles.emptyContainer : null}
         ListEmptyComponent={renderEmptyState}
-        refreshing={refreshing}
-        onRefresh={handleRefresh}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
       />
     </SafeAreaView>
   );

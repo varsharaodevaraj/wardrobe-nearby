@@ -87,6 +87,10 @@ const ItemDetailScreenEnhanced = ({ route, navigation }) => {
   }, [focusReview]);
 
   const handleRentNow = async () => {
+    if (!itemData.isAvailable) {
+      Alert.alert("Not Available", "This item is currently not available for rent or purchase.");
+      return;
+    }
     console.log('🎯 [ENHANCED] handleRentNow called');
     console.log('🎯 [ENHANCED] isOwner:', isOwner);
     console.log('🎯 [ENHANCED] item.listingType:', item.listingType);
@@ -478,16 +482,21 @@ const ItemDetailScreenEnhanced = ({ route, navigation }) => {
             </TouchableOpacity>
           ) : (
             <TouchableOpacity 
-              style={[styles.rentButton, loading && styles.rentButtonDisabled]} 
+              style={[
+                styles.rentButton, 
+                (loading || !itemData.isAvailable) && styles.rentButtonDisabled
+              ]} 
               onPress={handleRentNow}
-              disabled={loading}
+              disabled={loading || !itemData.isAvailable}
             >
               {loading ? (
                 <ActivityIndicator color="white" />
               ) : (
                 <>
                   <Ionicons name={item.listingType === 'sell' ? "card-outline" : "bag-handle-outline"} size={20} color="white" />
-                  <Text style={styles.rentButtonText}>{item.listingType === 'sell' ? 'Buy Now' : 'Rent Now'}</Text>
+                  <Text style={styles.rentButtonText}>
+                    {itemData.isAvailable ? (item.listingType === 'sell' ? 'Buy Now' : 'Rent Now') : 'Not Available'}
+                  </Text>
                 </>
               )}
             </TouchableOpacity>
@@ -498,19 +507,10 @@ const ItemDetailScreenEnhanced = ({ route, navigation }) => {
       {/* Owner Footer */}
       {isOwner && (
         <View style={styles.ownerFooter}>
-          <View style={styles.ownerStats}>
-            <View style={styles.statItem}>
-              <Text style={styles.statNumber}>0</Text>
-              <Text style={styles.statLabel}>Views</Text>
-            </View>
-            <View style={styles.statDivider} />
-            <View style={styles.statItem}>
-              <Text style={styles.statNumber}>0</Text>
-              <Text style={styles.statLabel}>Requests</Text>
-            </View>
-          </View>
-          
-          <TouchableOpacity style={styles.manageButton}>
+          <TouchableOpacity 
+            style={styles.manageButton}
+            onPress={() => navigation.navigate('EditItem', { item: itemData })}
+          >
             <Ionicons name="settings-outline" size={20} color="#957DAD" />
             <Text style={styles.manageButtonText}>Manage Listing</Text>
           </TouchableOpacity>
@@ -833,7 +833,10 @@ const styles = StyleSheet.create({
     minWidth: 120,
     justifyContent: 'center'
   },
-  rentButtonDisabled: { backgroundColor: '#CED4DA' },
+  rentButtonDisabled: { 
+    backgroundColor: '#CED4DA',
+    opacity: 0.7 
+  },
   rentButtonText: { color: 'white', fontSize: 16, fontWeight: 'bold', marginLeft: 6 },
   requestedButton: { 
     backgroundColor: '#27AE60', 
@@ -850,7 +853,8 @@ const styles = StyleSheet.create({
     padding: 20, 
     backgroundColor: '#F8F9FA', 
     borderTopWidth: 1, 
-    borderTopColor: '#E9ECEF' 
+    borderTopColor: '#E9ECEF',
+    alignItems: 'center'
   },
   ownerStats: {
     flexDirection: 'row',

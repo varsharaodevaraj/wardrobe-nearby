@@ -61,7 +61,10 @@ const AddStoryScreen = ({ navigation }) => {
   };
 
   const handlePostStory = async () => {
-    if (!image) return Alert.alert("No Image", "Please select an image.");
+    if (!image) {
+      Alert.alert("No Image", "Please select an image before posting your story.");
+      return;
+    }
     setLoading(true);
     try {
       const formData = new FormData();
@@ -132,7 +135,7 @@ const AddStoryScreen = ({ navigation }) => {
         <TouchableOpacity
           style={[styles.submitButton, loading && styles.submitButtonDisabled]}
           onPress={handlePostStory}
-          disabled={!image || loading}
+          disabled={loading}
         >
           {loading ? (
             <ActivityIndicator color="#FFFFFF" />
