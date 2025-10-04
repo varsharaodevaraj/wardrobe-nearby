@@ -67,7 +67,7 @@ const ChatScreen = ({ route, navigation }) => {
         stopTyping(chat._id);
       };
     }
-  }, [chat?._id, joinChat, leaveChat, stopTyping, clearNewMessages]);
+  }, [chat?._id]);
 
   useEffect(() => {
     const chatNewMessages = newMessages.filter(msg => msg.chatId === chat?._id);
@@ -80,7 +80,7 @@ const ChatScreen = ({ route, navigation }) => {
       setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
       api(`/chats/${chat._id}/mark-read`, 'PUT');
     }
-  }, [newMessages, chat?._id, clearNewMessages]);
+  }, [newMessages, chat?._id]);
 
   useEffect(() => {
     const handleDeletedMessage = ({ chatId: deletedInChatId, messageId }) => {
@@ -157,7 +157,7 @@ const ChatScreen = ({ route, navigation }) => {
   const otherParticipant = chat?.participants?.find(p => p._id !== user.id);
 
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
           <Ionicons name="arrow-back" size={24} color="#2c3e50" />
@@ -190,7 +190,7 @@ const ChatScreen = ({ route, navigation }) => {
           )}
           ListFooterComponent={<TypingIndicator typingUsers={getTypingUsers(chat?._id)} />}
         />
-        <View style={styles.inputContainerWrapper}>
+        <SafeAreaView style={styles.inputContainerWrapper} edges={['bottom']}>
           <View style={styles.inputContainer}>
             <TextInput
               style={styles.textInput}
@@ -208,7 +208,7 @@ const ChatScreen = ({ route, navigation }) => {
               {sending ? <ActivityIndicator size="small" color="white" /> : <Ionicons name="send" size={20} color="white" />}
             </TouchableOpacity>
           </View>
-        </View>
+        </SafeAreaView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
