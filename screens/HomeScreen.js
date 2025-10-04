@@ -253,7 +253,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   listContent: {
+    paddingTop: 10,
     paddingBottom: 20,
+    paddingHorizontal: 20,
   },
   loader: {
     flex: 1,
