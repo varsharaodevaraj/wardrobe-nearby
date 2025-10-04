@@ -25,10 +25,7 @@ import ChatListScreen from "./screens/ChatListScreen";
 import ChatScreen from "./screens/ChatScreen";
 import MyRentalsScreen from "./screens/MyRentalsScreen";
 import WishlistScreen from "./screens/WishlistScreen";
-import MyListingsScreen from "./screens/MyListingsScreen"; // NEW IMPORT
-
-// Enhanced screens
-import ItemDetailScreenEnhanced from "./screens/ItemDetailScreenEnhanced";
+import MyListingsScreen from "./screens/MyListingsScreen";
 
 const AuthStack = createNativeStackNavigator();
 const MainStack = createNativeStackNavigator();
@@ -38,8 +35,7 @@ function MainFlow() {
   return (
     <MainStack.Navigator screenOptions={{ headerShown: false }}>
       <MainStack.Screen name="MainTabs" component={MainTabs} />
-      <MainStack.Screen name="ItemDetail" component={ItemDetailScreenEnhanced} />
-      <MainStack.Screen name="ItemDetailBasic" component={ItemDetailScreen} />
+      <MainStack.Screen name="ItemDetail" component={ItemDetailScreen} />
       <MainStack.Screen name="EditItem" component={EditItemScreen} />
       <MainStack.Screen name="Chat" component={ChatScreen} />
       <MainStack.Screen name="MyRentals" component={MyRentalsScreen} />

@@ -1,52 +1,76 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Image, ScrollView, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
-import api from '../utils/api'; // Import our secure API client
-import { useAuth } from '../context/AuthContext'; // To check if the user is the owner
-import { useRental } from '../context/RentalContext'; // For global rental management
+import React, { useState, useEffect, useRef, useCallback } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  Alert,
+  ActivityIndicator,
+  Dimensions,
+  Switch,
+  Image,
+  Modal,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { Ionicons } from "@expo/vector-icons";
+import api from "../utils/api";
+import { useAuth } from "../context/AuthContext";
+import { useWishlist } from "../context/WishlistContext";
+import { useRental } from "../context/RentalContext";
+import ReviewsList from "../components/ReviewsList";
+import ReviewForm from "../components/ReviewForm";
+import StarRating from "../components/StarRating";
+
+const { width } = Dimensions.get("window");
 
 const ItemDetailScreen = ({ route, navigation }) => {
-  const { item } = route.params;
-  const { user } = useAuth(); // Get the current logged-in user
-  const { isFollowing, toggleFollow, checkFollowStatus, loading: followLoading } = useFollow();
-  const { getRentalStatus, checkRentalStatus, submitRentalRequest, loading: rentalLoading } = useRental();
+  const { item, focusReview = false } = route.params;
+  const { user } = useAuth();
+  const {
+    isInWishlist,
+    toggleWishlist,
+    loading: wishlistLoading,
+  } = useWishlist();
+  const {
+    getRentalStatus,
+    checkRentalStatus,
+    submitRentalRequest,
+    loading: rentalLoading,
+  } = useRental();
   const [loading, setLoading] = useState(false);
   const [checkingRequest, setCheckingRequest] = useState(true);
-  const [imageError, setImageError] = useState(false);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [chatLoading, setChatLoading] = useState(false);
+  const [itemData, setItemData] = useState(item);
 
-  // Check if the logged-in user is the owner of the item
-  // Handle both cases: item.user as object {_id, name} or as string ID
-  const itemOwnerId = typeof item.user === 'object' ? item.user._id : item.user;
+  // Review-related state
+  const [showReviewForm, setShowReviewForm] = useState(false);
+  const [editingReview, setEditingReview] = useState(null);
+  const [reviewsRefreshTrigger, setReviewsRefreshTrigger] = useState(0);
+  const scrollViewRef = useRef(null);
+  const reviewsSectionRef = useRef(null);
+
+  const imageGallery =
+    itemData.images && itemData.images.length > 0
+      ? itemData.images
+      : [itemData.imageUrl].filter(Boolean);
+  const featuredIndex = itemData.featuredImageIndex || 0;
+
+  const itemOwnerId = typeof item.user === "object" ? item.user._id : item.user;
   const isOwner = user?.id === itemOwnerId;
-  
-  // Debug logging to ensure proper owner detection
-  console.log('[ITEM_DETAIL] Owner check:', {
-    currentUserId: user?.id,
-    itemOwnerId: itemOwnerId,
-    itemUserType: typeof item.user,
-    isOwner: isOwner
-  });
 
-  // Check if user has already requested this item and follow status
   useEffect(() => {
     const initializeScreen = async () => {
       if (isOwner) {
         setCheckingRequest(false);
         return;
       }
-      
-      try {
-        // Check existing rental request using context
-        await checkRentalStatus(item._id);
 
-        // Check follow status using global context
-        if (itemOwnerId) {
-          await checkFollowStatus(itemOwnerId);
-        }
+      try {
+        await checkRentalStatus(item._id);
       } catch (error) {
-        console.error('[ITEM_DETAIL] Error initializing screen:', error);
+        console.error("[ITEM_DETAIL] Error initializing screen:", error);
       } finally {
         setCheckingRequest(false);
       }
@@ -57,314 +81,528 @@ const ItemDetailScreen = ({ route, navigation }) => {
     } else {
       setCheckingRequest(false);
     }
-  }, [item._id, isOwner, checkFollowStatus, checkRentalStatus]);
+  }, [item._id, isOwner, checkRentalStatus]);
+
+  useEffect(() => {
+    if (focusReview && reviewsSectionRef.current && scrollViewRef.current) {
+      const timer = setTimeout(() => {
+        reviewsSectionRef.current.measure((x, y) => {
+          scrollViewRef.current.scrollTo({ y: y - 100, animated: true });
+        });
+      }, 500);
+
+      return () => clearTimeout(timer);
+    }
+  }, [focusReview]);
 
   const handleRentNow = async () => {
-    if (!item.isAvailable) {
-      Alert.alert("Not Available", "This item is currently not available for rent or purchase.");
-      return;
-    }
-    
-    console.log('🎯 [REGULAR] handleRentNow called');
-    console.log('🎯 [REGULAR] isOwner:', isOwner);
-    console.log('🎯 [REGULAR] item.listingType:', item.listingType);
-    
-    // Additional safety check - should never happen since UI hides button for owners
-    if (isOwner) {
-      Alert.alert("Info", "This is your own item. You can manage it from your profile.");
+    if (!itemData.isAvailable) {
+      Alert.alert("Not Available", "This item is currently not available.");
       return;
     }
 
-    // Show message input dialog
-    const isForSale = item.listingType === 'sell';
+    if (isOwner) {
+      Alert.alert("Info", "This is your own item.");
+      return;
+    }
+
+    const isForSale = item.listingType === "sell";
     const actionText = isForSale ? "Purchase Request" : "Rental Request";
-    const priceText = isForSale ? `₹${item.price_per_day}` : `₹${item.price_per_day}/${item.rentalDuration || 'day'}`;
-    
-    console.log('🎯 [REGULAR] About to show Alert for request');
-    
-    // Show confirmation first, then ask for message
+    const priceText = isForSale
+      ? `₹${item.price_per_day}`
+      : `₹${item.price_per_day}/${item.rentalDuration || "day"}`;
+
     Alert.alert(
       `Send ${actionText}`,
-      `${isForSale ? 'Interested in buying' : 'Requesting'} "${item.name}" for ${priceText}`,
+      `Requesting "${item.name}" for ${priceText}`,
       [
         { text: "Cancel", style: "cancel" },
-        { 
-          text: "Send Request", 
-          onPress: () => {
-            console.log('🎯 [REGULAR] Alert onPress called, submitting request');
-            handleSubmitRequest("");
-          }
-        }
+        {
+          text: "Send Request",
+          onPress: () => handleSubmitRequest(""),
+        },
       ]
     );
   };
 
   const handleSubmitRequest = async (customMessage = "") => {
-    console.log('🚀 [REGULAR] handleSubmitRequest called with message:', customMessage);
     setLoading(true);
-    
     try {
       const result = await submitRentalRequest(item._id, customMessage);
-      
+
       if (result.success) {
-        const requestType = item.listingType === 'sell' ? 'purchase request' : 'rental request';
-        Alert.alert(
-          "Request Sent! 🎉", 
-          `Your ${requestType} for "${item.name}" has been sent to the owner and a message has been added to your chat. You'll be notified when they respond.`,
-          [
-            { text: "Go to Chat", onPress: () => {
-              const ownerName = typeof item.user === 'object' ? item.user.name : 'Owner';
-              navigation.navigate('Chat', {
-                participantId: itemOwnerId,
-                itemId: item._id,
-                participantName: ownerName,
-                itemName: item.name
-              });
-            }},
-            { text: "OK", onPress: () => navigation.goBack() }
-          ]
-        );
+        const requestType =
+          item.listingType === "sell" ? "purchase request" : "rental request";
+        Alert.alert("Request Sent!", `Your ${requestType} has been sent.`, [
+          { text: "OK", onPress: () => navigation.goBack() },
+        ]);
       } else {
-        // Handle error from context
-        if (result.message.includes('already sent a request')) {
-          const requestType = item.listingType === 'sell' ? 'purchase request' : 'rental request';
-          Alert.alert("Already Requested", `You have already sent a ${requestType} for this item. Please wait for the owner to respond.`);
-        } else {
-          Alert.alert("Request Failed", result.message);
-        }
+        Alert.alert("Request Failed", result.message);
       }
     } catch (error) {
-      console.error("[RENTAL_REQUEST] Error:", error);
-      Alert.alert("Request Failed", "Could not submit your request. Please try again.");
+      Alert.alert("Request Failed", "Could not submit your request.");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleFollowToggle = async () => {
-    // Additional safety check - should never happen since UI hides button for owners
-    if (isOwner) {
-      Alert.alert("Info", "This is your own item. You cannot follow yourself.");
-      return;
-    }
-    
-    const ownerName = typeof item.user === 'object' ? item.user.name : 'User';
-    
-    await toggleFollow(itemOwnerId, ownerName);
+  const handleWishlistToggle = async () => {
+    if (isOwner) return;
+    await toggleWishlist(item);
   };
 
-  const handleStartChat = async () => {
-    // Additional safety check - should never happen since UI hides button for owners
-    if (isOwner) {
-      Alert.alert("Info", "This is your own item. You cannot chat with yourself.");
-      return;
-    }
-    
-    setChatLoading(true);
+  const handleImageScroll = (event) => {
+    const contentOffsetX = event.nativeEvent.contentOffset.x;
+    const currentIndex = Math.round(contentOffsetX / width);
+    setCurrentImageIndex(currentIndex);
+  };
+
+  const handleAvailabilityToggle = async () => {
     try {
-      const ownerName = typeof item.user === 'object' ? item.user.name : 'Owner';
-      
-      console.log('[ITEM_DETAIL] Starting chat with:', { itemOwnerId, ownerName, itemId: item._id });
-      
-      // Navigate to chat with the owner
-      navigation.navigate('Chat', {
-        participantId: itemOwnerId,
-        itemId: item._id,
-        participantName: ownerName,
-        itemName: item.name
+      setLoading(true);
+      const updatedItem = await api(`/items/${itemData._id}`, "PUT", {
+        isAvailable: !itemData.isAvailable,
       });
+      setItemData(updatedItem);
+      Alert.alert(
+        "Status Updated",
+        `Item is now ${updatedItem.isAvailable ? "available" : "unavailable"}.`
+      );
     } catch (error) {
-      console.error('[ITEM_DETAIL] Chat error:', error);
-      Alert.alert("Error", "Could not start chat. Please try again.");
+      Alert.alert("Error", "Could not update availability status.");
     } finally {
-      setChatLoading(false);
+      setLoading(false);
     }
+  };
+
+  const renderImageIndicator = () => {
+    if (imageGallery.length <= 1) return null;
+    return (
+      <View style={styles.imageIndicatorContainer}>
+        {imageGallery.map((_, index) => (
+          <View
+            key={index}
+            style={[
+              styles.imageIndicator,
+              index === currentImageIndex && styles.activeImageIndicator,
+            ]}
+          />
+        ))}
+      </View>
+    );
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-      <ScrollView>
-        <Image 
-          source={{ 
-            uri: imageError ? 'https://dummyimage.com/600x400/E0BBE4/4A235A&text=No+Image' : item.imageUrl 
-          }} 
-          style={styles.image}
-          onError={() => setImageError(true)}
-        />
-        
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-           <Text style={styles.backButtonText}>←</Text>
-        </TouchableOpacity>
+    <SafeAreaView style={styles.container} edges={["top"]}>
+      <ScrollView
+        ref={scrollViewRef}
+        contentContainerStyle={styles.scrollContent}
+      >
+        <View style={styles.imageSection}>
+          <ScrollView
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            onScroll={handleImageScroll}
+            scrollEventThrottle={16}
+          >
+            {imageGallery.map((uri, index) => (
+              <View key={index} style={styles.imageContainer}>
+                <Image
+                  source={{
+                    uri:
+                      uri ||
+                      "https://dummyimage.com/600x400/E0BBE4/4A235A&text=No+Image",
+                  }}
+                  style={styles.image}
+                />
+              </View>
+            ))}
+          </ScrollView>
+          <TouchableOpacity
+            onPress={() => navigation.goBack()}
+            style={styles.backButton}
+          >
+            <Ionicons name="arrow-back" size={24} color="white" />
+          </TouchableOpacity>
+          {imageGallery.length > 1 && (
+            <View style={styles.imageCounter}>
+              <Text style={styles.imageCounterText}>
+                {currentImageIndex + 1} / {imageGallery.length}
+              </Text>
+            </View>
+          )}
+        </View>
+        {renderImageIndicator()}
 
         <View style={styles.detailsContainer}>
-          <Text style={styles.name}>{item.name}</Text>
-          <Text style={styles.category}>{item.category}</Text>
+          <Text style={styles.name}>{itemData.name}</Text>
+          <Text style={styles.category}>{itemData.category}</Text>
+
+          <View style={styles.statusContainer}>
+            <View
+              style={[
+                styles.statusBadge,
+                itemData.isAvailable
+                  ? styles.availableBadge
+                  : styles.unavailableBadge,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.statusText,
+                  itemData.isAvailable
+                    ? styles.availableText
+                    : styles.unavailableText,
+                ]}
+              >
+                {itemData.isAvailable ? "Available" : "Not Available"}
+              </Text>
+            </View>
+            <View style={styles.listingTypeBadge}>
+              <Text style={styles.listingTypeText}>
+                {itemData.listingType === "rent" ? "For Rent" : "For Sale"}
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.card}>
+            <Text style={styles.sectionTitle}>Description</Text>
+            <Text style={styles.description}>{itemData.description}</Text>
+          </View>
+
+          {itemData.reasonForSelling && itemData.reasonForSelling.trim() && (
+            <View style={styles.card}>
+              <Text style={styles.sectionTitle}>
+                {itemData.listingType === "rent"
+                  ? "Reason for Renting"
+                  : "Reason for Selling"}
+              </Text>
+              <Text style={styles.reasonText}>{itemData.reasonForSelling}</Text>
+            </View>
+          )}
+
+          <View style={styles.card}>
+            <Text style={styles.sectionTitle}>Listed by</Text>
+            <View style={styles.ownerInfo}>
+              <View style={styles.ownerAvatar}>
+                <Text style={styles.ownerInitial}>
+                  {item.user?.name
+                    ? item.user.name.charAt(0).toUpperCase()
+                    : "U"}
+                </Text>
+              </View>
+              <View>
+                <Text style={styles.ownerName}>
+                  {item.user?.name || "Unknown User"}
+                </Text>
+                {item.user?.status === "super-lender" && (
+                  <Text style={styles.superLenderText}>Super Lender</Text>
+                )}
+              </View>
+            </View>
+          </View>
+
+          {isOwner && (
+            <View style={styles.card}>
+              <Text style={styles.sectionTitle}>Item Management</Text>
+              <View style={styles.availabilityToggle}>
+                <Text style={styles.toggleLabel}>
+                  Available for {itemData.listingType}
+                </Text>
+                <Switch
+                  value={itemData.isAvailable}
+                  onValueChange={handleAvailabilityToggle}
+                  trackColor={{ false: "#CCC", true: "#E0BBE4" }}
+                  thumbColor={itemData.isAvailable ? "#957DAD" : "#FFF"}
+                  disabled={loading}
+                />
+              </View>
+            </View>
+          )}
+
+          <View ref={reviewsSectionRef} style={styles.card}>
+            <Text style={styles.sectionTitle}>Reviews & Ratings</Text>
+            <ReviewsList
+              itemId={item._id}
+              onWriteReview={() => setShowReviewForm(true)}
+              onEditReview={(review) => {
+                setEditingReview(review);
+                setShowReviewForm(true);
+              }}
+              refreshTrigger={reviewsRefreshTrigger}
+              highlightWriteReview={focusReview}
+              isOwner={isOwner}
+            />
+          </View>
         </View>
       </ScrollView>
 
-      {/* --- ENHANCED FOOTER --- */}
-      {/* The footer will not show if the user is the owner of the item */}
       {!isOwner && (
-        <>
-          {/* Social Actions Bar */}
-          <View style={styles.socialActions}>
-            <TouchableOpacity 
-              style={[styles.actionButton, styles.followButton]}
-              onPress={handleFollowToggle}
-              disabled={followLoading}
-            >
-              {followLoading ? (
-                <ActivityIndicator size="small" color="#4A235A" />
-              ) : (
-                <>
-                  <Ionicons 
-                    name={isFollowing(itemOwnerId) ? 'person-remove-outline' : 'person-add-outline'} 
-                    size={18} 
-                    color="#4A235A" 
-                  />
-                  <Text style={styles.actionButtonText}>
-                    {isFollowing(itemOwnerId) ? 'Unfollow' : 'Follow'}
-                  </Text>
-                </>
-              )}
-            </TouchableOpacity>
-
-            <TouchableOpacity 
-              style={[styles.actionButton, styles.chatButton]}
-              onPress={handleStartChat}
-              disabled={chatLoading}
-            >
-              {chatLoading ? (
-                <ActivityIndicator size="small" color="#4A235A" />
-              ) : (
-                <>
-                  <Ionicons name="chatbubble-outline" size={18} color="#4A235A" />
-                  <Text style={styles.actionButtonText}>Chat</Text>
-                </>
-              )}
-            </TouchableOpacity>
-          </View>
-
-          {/* Main Footer */}
+        <SafeAreaView style={styles.footerSafeArea} edges={["bottom"]}>
           <View style={styles.footer}>
-            <View style={styles.priceContainer}>
-              <Text style={styles.price}>
-                ₹{item.price_per_day}
-              </Text>
+            <TouchableOpacity
+              style={styles.wishlistButton}
+              onPress={handleWishlistToggle}
+              disabled={wishlistLoading}
+            >
+              <Ionicons
+                name={isInWishlist(item._id) ? "heart" : "heart-outline"}
+                size={28}
+                color={isInWishlist(item._id) ? "#E74C3C" : "#2c3e50"}
+              />
+            </TouchableOpacity>
+            <View style={styles.priceSection}>
+              <Text style={styles.price}>₹{item.price_per_day}</Text>
               <Text style={styles.priceLabel}>
-                {item.listingType === 'sell' ? '' : `${item.rentalDuration || 'per day'}`}
+                {item.listingType === "sell"
+                  ? ""
+                  : `/${item.rentalDuration || "day"}`}
               </Text>
             </View>
-            
-            {checkingRequest ? (
-              <View style={styles.rentButton}>
-                <ActivityIndicator color="#4A235A" />
-              </View>
-            ) : getRentalStatus(item._id) ? (
-              <TouchableOpacity style={styles.requestedButton} disabled={true}>
-                <Text style={styles.requestedButtonText}>✓ Request Sent</Text>
-              </TouchableOpacity>
-            ) : (
-              <TouchableOpacity 
-                style={[
-                  styles.rentButton, 
-                  loading && styles.rentButtonDisabled,
-                  !item.isAvailable && styles.rentButtonDisabled
-                ]} 
-                onPress={handleRentNow}
-                disabled={loading || !item.isAvailable}
-              >
-                {loading ? (
-                  <ActivityIndicator color="#4A235A" />
-                ) : (
-                  <Text style={styles.rentButtonText}>
-                    {item.isAvailable ? (item.listingType === 'sell' ? 'Buy Now' : 'Rent Now') : 'Not Available'}
-                  </Text>
-                )}
-              </TouchableOpacity>
-            )}
+            <TouchableOpacity
+              style={[
+                styles.rentButton,
+                (!itemData.isAvailable || loading) && styles.rentButtonDisabled,
+              ]}
+              onPress={handleRentNow}
+              disabled={!itemData.isAvailable || loading}
+            >
+              {loading ? (
+                <ActivityIndicator color="white" />
+              ) : (
+                <Text style={styles.rentButtonText}>
+                  {itemData.isAvailable
+                    ? item.listingType === "sell"
+                      ? "Buy Now"
+                      : "Rent Now"
+                    : "Unavailable"}
+                </Text>
+              )}
+            </TouchableOpacity>
           </View>
-        </>
+        </SafeAreaView>
       )}
 
-      {/* Show owner message if user owns this item */}
       {isOwner && (
-        <View style={styles.ownerFooter}>
-          <Text style={styles.ownerText}>📝 This is your listing</Text>
-          <Text style={styles.ownerSubtext}>Other users can send you rental requests</Text>
-        </View>
+        <SafeAreaView style={styles.footerSafeArea} edges={["bottom"]}>
+          <View style={styles.ownerFooter}>
+            <TouchableOpacity
+              style={styles.manageButton}
+              onPress={() => navigation.navigate("EditItem", { item: itemData })}
+            >
+              <Ionicons name="settings-outline" size={20} color="#957DAD" />
+              <Text style={styles.manageButtonText}>Manage Listing</Text>
+            </TouchableOpacity>
+          </View>
+        </SafeAreaView>
       )}
-      
-      {/* Enhanced View Button */}
-      {!isOwner && (
-        <View style={styles.enhancedViewContainer}>
-          <TouchableOpacity 
-            style={styles.enhancedViewButton}
-            onPress={() => navigation.navigate('ItemDetailEnhanced', { item })}
-          >
-            <Ionicons name="eye-outline" size={20} color="#957DAD" />
-            <Text style={styles.enhancedViewText}>Enhanced View</Text>
-          </TouchableOpacity>
-        </View>
-      )}
+
+      <Modal
+        visible={showReviewForm}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => {
+          setShowReviewForm(false);
+          setEditingReview(null);
+        }}
+      >
+        <SafeAreaView style={{ flex: 1, backgroundColor: "#f8f9fa" }}>
+          <ReviewForm
+            itemId={item._id}
+            existingReview={editingReview}
+            onSuccess={() => {
+              setShowReviewForm(false);
+              setEditingReview(null);
+              setReviewsRefreshTrigger((p) => p + 1);
+            }}
+            onCancel={() => {
+              setShowReviewForm(false);
+              setEditingReview(null);
+            }}
+          />
+        </SafeAreaView>
+      </Modal>
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFFFF' },
-  image: { width: '100%', height: 400 },
-  backButton: { position: 'absolute', top: 20, left: 20, backgroundColor: 'rgba(0, 0, 0, 0.5)', width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center' },
-  backButtonText: { color: '#FFF', fontSize: 24, fontWeight: 'bold' },
-  detailsContainer: { padding: 20 },
-  name: { fontSize: 28, fontWeight: 'bold', color: '#2c3e50', marginBottom: 8 },
-  category: { fontSize: 18, color: '#7f8c8d', marginBottom: 16 },
-  socialActions: { 
-    flexDirection: 'row', 
-    justifyContent: 'space-around', 
-    paddingVertical: 15, 
-    backgroundColor: '#F8F9FA', 
-    borderTopWidth: 1, 
-    borderTopColor: '#E9ECEF' 
-  },
-  actionButton: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    paddingVertical: 8, 
-    paddingHorizontal: 16, 
-    borderRadius: 20, 
-    borderWidth: 1.5, 
-    borderColor: '#E0BBE4', 
-    backgroundColor: '#FFFFFF',
-    minWidth: 90,
-    justifyContent: 'center'
-  },
-  followButton: { marginRight: 10 },
-  chatButton: { marginLeft: 10 },
-  actionButtonText: { marginLeft: 6, fontSize: 14, color: '#4A235A', fontWeight: '500' },
-  footer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, borderTopWidth: 1, borderTopColor: '#E9ECEF' },
-  priceContainer: { alignItems: 'flex-start' },
-  price: { fontSize: 22, fontWeight: 'bold', color: '#2c3e50' },
-  priceLabel: { fontSize: 14, color: '#7f8c8d', marginTop: 2 },
-  rentButton: { backgroundColor: '#E0BBE4', paddingVertical: 15, paddingHorizontal: 30, borderRadius: 30, minWidth: 150, alignItems: 'center' },
-  rentButtonDisabled: { backgroundColor: '#CED4DA', opacity: 0.7 },
-  rentButtonText: { color: '#4A235A', fontSize: 18, fontWeight: 'bold' },
-  requestedButton: { backgroundColor: '#27AE60', paddingVertical: 15, paddingHorizontal: 30, borderRadius: 30, minWidth: 150, alignItems: 'center' },
-  requestedButtonText: { color: '#FFFFFF', fontSize: 16, fontWeight: 'bold' },
-  ownerFooter: { padding: 20, backgroundColor: '#F8F9FA', borderTopWidth: 1, borderTopColor: '#E9ECEF', alignItems: 'center' },
-  ownerText: { fontSize: 16, fontWeight: 'bold', color: '#2c3e50', marginBottom: 4 },
-  ownerSubtext: { fontSize: 14, color: '#7f8c8d', textAlign: 'center' },
-  enhancedViewContainer: { padding: 15, backgroundColor: '#f8f9fa', alignItems: 'center' },
-  enhancedViewButton: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    paddingVertical: 8, 
-    paddingHorizontal: 16,
-    borderWidth: 1,
-    borderColor: '#E0BBE4',
+  container: { flex: 1, backgroundColor: "#F8F9FA" },
+  scrollContent: { paddingBottom: 100 },
+  imageSection: { height: 400 },
+  imageContainer: { width, height: 400 },
+  image: { width: "100%", height: "100%" },
+  backButton: {
+    position: "absolute",
+    top: 50,
+    left: 20,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    width: 40,
+    height: 40,
     borderRadius: 20,
+    justifyContent: "center",
+    alignItems: "center",
   },
-  enhancedViewText: { marginLeft: 6, fontSize: 14, color: '#957DAD', fontWeight: '500' },
+  imageCounter: {
+    position: "absolute",
+    bottom: 20,
+    right: 20,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 15,
+  },
+  imageCounterText: { color: "white", fontSize: 14, fontWeight: "500" },
+  imageIndicatorContainer: {
+    flexDirection: "row",
+    justifyContent: "center",
+    paddingVertical: 10,
+  },
+  imageIndicator: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "#E0E0E0",
+    marginHorizontal: 4,
+  },
+  activeImageIndicator: { backgroundColor: "#957DAD" },
+  detailsContainer: { paddingHorizontal: 20, paddingTop: 10 },
+  name: { fontSize: 28, fontWeight: "bold", color: "#2c3e50", marginBottom: 4 },
+  category: { fontSize: 16, color: "#7f8c8d", marginBottom: 15 },
+  statusContainer: { flexDirection: "row", gap: 10, marginBottom: 20 },
+  statusBadge: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 15 },
+  availableBadge: { backgroundColor: "#E8F5E8" },
+  unavailableBadge: { backgroundColor: "#FFF2F2" },
+  statusText: { fontSize: 12, fontWeight: "bold" },
+  availableText: { color: "#2E7D32" },
+  unavailableText: { color: "#D32F2F" },
+  listingTypeBadge: {
+    backgroundColor: "#F3E5F5",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 15,
+  },
+  listingTypeText: { fontSize: 12, fontWeight: "bold", color: "#7B1FA2" },
+
+  card: {
+    backgroundColor: "white",
+    borderRadius: 12,
+    padding: 15,
+    marginBottom: 15,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#34495e",
+    marginBottom: 10,
+  },
+  description: { fontSize: 16, color: "#34495e", lineHeight: 24 },
+  reasonText: {
+    fontSize: 16,
+    color: "#7f8c8d",
+    fontStyle: "italic",
+    lineHeight: 24,
+  },
+
+  ownerInfo: { flexDirection: "row", alignItems: "center" },
+  ownerAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#E0BBE4",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 12,
+  },
+  ownerInitial: { color: "#4A235A", fontSize: 18, fontWeight: "bold" },
+  ownerName: { fontSize: 16, fontWeight: "600", color: "#2c3e50" },
+  superLenderText: {
+    fontSize: 12,
+    color: "#B7950B",
+    fontWeight: "bold",
+    marginTop: 2,
+  },
+
+  availabilityToggle: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  toggleLabel: { fontSize: 16, color: "#34495e" },
+
+  footerSafeArea: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: "white",
+  },
+  footer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderTopWidth: 1,
+    borderTopColor: "#E9ECEF",
+    backgroundColor: "white",
+  },
+  wishlistButton: { padding: 10 },
+  priceSection: { flexDirection: "row", alignItems: "baseline" },
+  price: { fontSize: 24, fontWeight: "bold", color: "#2c3e50" },
+  priceLabel: { fontSize: 14, color: "#7f8c8d", marginLeft: 2 },
+  rentButton: {
+    backgroundColor: "#957DAD",
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 30,
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  rentButtonDisabled: { backgroundColor: "#CED4DA", opacity: 0.8 },
+  rentButtonText: { color: "white", fontSize: 16, fontWeight: "bold" },
+  requestedButton: {
+    backgroundColor: "#27AE60",
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 30,
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  requestedButtonText: {
+    color: "white",
+    fontSize: 14,
+    fontWeight: "bold",
+    marginLeft: 6,
+  },
+
+  ownerFooter: {
+    padding: 20,
+    borderTopWidth: 1,
+    borderTopColor: "#E9ECEF",
+    backgroundColor: "white",
+  },
+  manageButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 12,
+    borderWidth: 1,
+    borderColor: "#E0BBE4",
+    borderRadius: 30,
+  },
+  manageButtonText: {
+    marginLeft: 6,
+    fontSize: 16,
+    color: "#957DAD",
+    fontWeight: "500",
+  },
 });
 
 export default ItemDetailScreen;
