@@ -4,11 +4,11 @@ require('dotenv').config();
 // Connect to MongoDB
 mongoose.connect(process.env.MONGO_URI)
   .then(() => {
-    console.log('✅ Connected to MongoDB for enhanced item migration');
+    console.log(' Connected to MongoDB for enhanced item migration');
     migrateEnhancedItems();
   })
   .catch(err => {
-    console.error('❌ MongoDB connection error:', err);
+    console.error(' MongoDB connection error:', err);
     process.exit(1);
   });
 
@@ -26,7 +26,7 @@ async function migrateEnhancedItems() {
       ]
     });
     
-    console.log(`📦 Found ${itemsToMigrate.length} items to migrate for enhanced features`);
+    console.log(` Found ${itemsToMigrate.length} items to migrate for enhanced features`);
     
     let migratedCount = 0;
     
@@ -46,10 +46,10 @@ async function migrateEnhancedItems() {
         if (Object.keys(updateData).length > 0) {
           await Item.findByIdAndUpdate(item._id, updateData);
           migratedCount++;
-          console.log(`✅ Updated item: ${item.name} with enhanced features`);
+          console.log(` Updated item: ${item.name} with enhanced features`);
         }
       } catch (error) {
-        console.error(`❌ Error updating item ${item._id}:`, error);
+        console.error(` Error updating item ${item._id}:`, error);
       }
     }
     
@@ -63,20 +63,20 @@ async function migrateEnhancedItems() {
       ]
     }).countDocuments();
     
-    console.log(`✅ Verification: ${verifyItems} items now have enhanced features`);
+    console.log(` Verification: ${verifyItems} items now have enhanced features`);
     
   } catch (error) {
-    console.error('❌ Enhanced migration error:', error);
+    console.error(' Enhanced migration error:', error);
   } finally {
     mongoose.connection.close();
-    console.log('📴 Database connection closed');
+    console.log(' Database connection closed');
     process.exit(0);
   }
 }
 
 // Handle graceful shutdown
 process.on('SIGINT', () => {
-  console.log('\n⚠️  Enhanced migration interrupted');
+  console.log('\n  Enhanced migration interrupted');
   mongoose.connection.close();
   process.exit(0);
 });

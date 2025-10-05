@@ -1,6 +1,5 @@
 const mongoose = require("mongoose");
 
-// 1. defining the user Schema:
 const UserSchema = new mongoose.Schema({
   name: { 
     type: String, 
@@ -24,6 +23,10 @@ const UserSchema = new mongoose.Schema({
     enum: ['regular', 'super-lender', 'super-renter'],
     default: 'regular'
   },
+  community: { // NEW FIELD
+    type: String,
+    required: false, // Or true if you want to force it on signup
+  },
   profileImage: { 
     type: String 
   },
@@ -36,5 +39,4 @@ const UserSchema = new mongoose.Schema({
   }
 });
 
-// 2. exporting the model
 module.exports = mongoose.model("User", UserSchema);

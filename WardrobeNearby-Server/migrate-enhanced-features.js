@@ -64,7 +64,7 @@ async function migrateEnhancedFeatures() {
       if (Object.keys(updateFields).length > 0) {
         await Item.findByIdAndUpdate(item._id, { $set: updateFields });
         migratedCount++;
-        console.log(`✅ Migrated item: ${item.name} (${item._id})`);
+        console.log(` Migrated item: ${item.name} (${item._id})`);
       }
     }
 

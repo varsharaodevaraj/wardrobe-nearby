@@ -10,6 +10,7 @@ import { WishlistProvider } from "./context/WishlistContext";
 import { RentalProvider } from "./context/RentalContext";
 import { ChatProvider } from "./context/ChatContext";
 import { NotificationProvider } from "./context/NotificationContext";
+import { CommunityProvider } from "./context/CommunityContext";
 import ErrorBoundary from "./components/ErrorBoundary";
 
 // Import all screens
@@ -47,7 +48,6 @@ function MainFlow() {
 
 function MainTabs() {
   const insets = useSafeAreaInsets();
-
   return (
     <Tab.Navigator
       screenOptions={{
@@ -57,8 +57,8 @@ function MainTabs() {
         tabBarStyle: {
           backgroundColor: '#FFFFFF',
           borderTopColor: '#E9ECEF',
-          paddingBottom: insets.bottom,
-          height: 60 + insets.bottom,
+          paddingBottom: insets.bottom > 0 ? insets.bottom : 10,
+          height: 60 + (insets.bottom > 0 ? insets.bottom : 10),
         },
         tabBarLabelStyle: {
           fontSize: 12,
@@ -69,31 +69,22 @@ function MainTabs() {
       <Tab.Screen 
         name="Explore" 
         component={HomeScreen}
-        options={{
-          tabBarIcon: ({ color, size }) => <Ionicons name="search-outline" size={size} color={color} />,
-        }}
+        options={{ tabBarIcon: ({ color, size }) => <Ionicons name="search-outline" size={size} color={color} /> }}
       />
       <Tab.Screen 
         name="AddItem" 
         component={AddItemScreen}
-        options={{
-          tabBarLabel: 'Add Item',
-          tabBarIcon: ({ color, size }) => <Ionicons name="add-circle-outline" size={size} color={color} />,
-        }}
+        options={{ tabBarLabel: 'List Item', tabBarIcon: ({ color, size }) => <Ionicons name="add-circle-outline" size={size} color={color} /> }}
       />
       <Tab.Screen 
         name="Messages" 
         component={ChatListScreen}
-        options={{
-          tabBarIcon: ({ color, size }) => <Ionicons name="chatbubble-outline" size={size} color={color} />,
-        }}
+        options={{ tabBarIcon: ({ color, size }) => <Ionicons name="chatbubble-outline" size={size} color={color} /> }}
       />
       <Tab.Screen 
         name="Profile" 
         component={ProfileScreen}
-        options={{
-          tabBarIcon: ({ color, size }) => <Ionicons name="person-circle-outline" size={size} color={color} />,
-        }}
+        options={{ tabBarIcon: ({ color, size }) => <Ionicons name="person-circle-outline" size={size} color={color} /> }}
       />
     </Tab.Navigator>
   );
@@ -121,15 +112,17 @@ export default function App() {
     <SafeAreaProvider>
       <ErrorBoundary>
         <AuthProvider>
-          <WishlistProvider>
-            <RentalProvider>
-              <NotificationProvider>
-                <ChatProvider>
-                  <AppNavigator />
-                </ChatProvider>
-              </NotificationProvider>
-            </RentalProvider>
-          </WishlistProvider>
+          <CommunityProvider>
+            <WishlistProvider>
+              <RentalProvider>
+                <NotificationProvider>
+                  <ChatProvider>
+                    <AppNavigator />
+                  </ChatProvider>
+                </NotificationProvider>
+              </RentalProvider>
+            </WishlistProvider>
+          </CommunityProvider>
         </AuthProvider>
       </ErrorBoundary>
     </SafeAreaProvider>
