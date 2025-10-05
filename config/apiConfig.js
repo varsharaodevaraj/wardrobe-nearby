@@ -11,6 +11,7 @@ import Constants from 'expo-constants';
  */
 
 // Get environment variables
+
 const ENV = {
   API_HOST: process.env.EXPO_PUBLIC_API_HOST,
   API_PORT: process.env.EXPO_PUBLIC_API_PORT || '3000',

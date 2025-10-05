@@ -48,7 +48,7 @@ const HomeScreen = React.memo(({ navigation }) => {
     }
 
     try {
-      let queryString = `?search=${encodeURIComponent(searchQuery)}`;
+      let queryString = `/items?search=${encodeURIComponent(searchQuery)}`;
       if (communityFilter && userCommunity) {
         queryString += `&community=true`;
       }
