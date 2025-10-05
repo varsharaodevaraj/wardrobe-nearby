@@ -40,21 +40,21 @@ const HomeScreen = React.memo(({ navigation }) => {
   const [communityFilter, setCommunityFilter] = useState(false);
 
   const fetchItems = useCallback(async () => {
-    if (!user?.id) return; // Prevent fetching if user is not loaded
-    
-    // Don't show the main loader on subsequent fetches, only on initial load
-    if(!refreshing) {
+    if (!user?.id) return;
+
+    if (!refreshing) {
         setLoading(true);
     }
 
     try {
-      let queryString = `/items?search=${encodeURIComponent(searchQuery)}`;
+      let queryString = `?search=${encodeURIComponent(searchQuery)}`;
       if (communityFilter && userCommunity) {
         queryString += `&community=true`;
       }
       
+      // *** THIS IS THE CORRECTED API CALL ***
       const [itemsData, featuredData] = await Promise.all([
-        api(queryString),
+        api(`/items${queryString}`), // Corrected: Added '/items' before the query string
         api('/items/featured')
       ]);
 
@@ -81,14 +81,21 @@ const HomeScreen = React.memo(({ navigation }) => {
         fetchItems();
     }, 500); // Debounce search
     return () => clearTimeout(timer);
-  }, [searchQuery]);
+  }, [searchQuery, communityFilter]); // Removed fetchItems from dependency array to prevent loop
   
-  // Fetch when the screen comes into focus or when the filter is toggled
-  useFocusEffect(useCallback(() => { fetchItems(); }, [fetchItems, communityFilter]));
+  useFocusEffect(useCallback(() => { 
+    fetchItems(); 
+  }, [fetchItems]));
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
   }, []);
+
+  useEffect(() => {
+    if (refreshing) {
+      fetchItems();
+    }
+  }, [refreshing, fetchItems]);
 
   const renderItem = useCallback(({ item }) => <ItemCard item={item} />, []);
   const keyExtractor = useCallback((item) => item._id, []);

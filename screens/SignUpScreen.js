@@ -1,27 +1,23 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import StyledTextInput from '../components/StyledTextInput';
 import { useAuth } from '../context/AuthContext';
-import { useCommunity } from '../context/CommunityContext';
-import { Picker } from '@react-native-picker/picker';
 
 const SignUpScreen = ({ navigation }) => {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [community, setCommunity] = useState('');
   const [loading, setLoading] = useState(false);
   const { signup } = useAuth();
-  const { communities } = useCommunity();
 
   const handleSignUp = async () => {
-    if (!name.trim() || !email.trim() || !password || !community) {
+    if (!name.trim() || !email.trim() || !password) {
       return Alert.alert("Missing Information", "Please fill in all fields.");
     }
     setLoading(true);
     try {
-      await signup(name.trim(), email.trim(), password, community);
+      await signup(name.trim(), email.trim(), password);
       Alert.alert(
         "Account Created!", 
         "Please log in to continue.",
@@ -42,18 +38,6 @@ const SignUpScreen = ({ navigation }) => {
         <StyledTextInput label="Email Address" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" />
         <StyledTextInput label="Password" value={password} onChangeText={setPassword} secureTextEntry />
         
-        <View style={styles.pickerContainer}>
-          <Text style={styles.label}>Select Your Community/Campus</Text>
-          <Picker
-            selectedValue={community}
-            onValueChange={(itemValue) => setCommunity(itemValue)}
-            style={styles.picker}
-          >
-            <Picker.Item label="-- Select a community --" value="" />
-            {communities.map(c => <Picker.Item key={c} label={c} value={c} />)}
-          </Picker>
-        </View>
-
         <TouchableOpacity style={styles.button} onPress={handleSignUp} disabled={loading}>
           {loading ? <ActivityIndicator color="#FFF" /> : <Text style={styles.buttonText}>Sign Up</Text>}
         </TouchableOpacity>
@@ -78,9 +62,6 @@ const styles = StyleSheet.create({
   linkContainer: { flexDirection: 'row', justifyContent: 'center', marginTop: 20 },
   linkText: { fontSize: 16, color: '#7f8c8d' },
   linkButton: { fontSize: 16, color: '#E0BBE4', fontWeight: 'bold' },
-  pickerContainer: { marginBottom: 20 },
-  label: { marginBottom: 8, fontSize: 16, color: '#34495e', fontWeight: '500' },
-  picker: { backgroundColor: '#ecf0f1', borderRadius: 10, padding: 15, borderWidth: 0 },
 });
 
 export default SignUpScreen;

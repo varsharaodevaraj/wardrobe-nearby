@@ -25,7 +25,7 @@ const UserSchema = new mongoose.Schema({
   },
   community: { // NEW FIELD
     type: String,
-    required: false, // Or true if you want to force it on signup
+    required: false, 
   },
   profileImage: { 
     type: String 

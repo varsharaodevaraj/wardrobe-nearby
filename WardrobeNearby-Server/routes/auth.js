@@ -4,19 +4,21 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 
+// Email validation utility function
 const validateEmail = (email) => {
   const emailRegex = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/;
   if (!email) return { isValid: false, error: 'Email is required' };
-  if (!emailRegex.test(email)) return { isValid: false, error: 'Please enter a valid email address' };
-  return { isValid: true, email: email.toLowerCase() };
+  const trimmedEmail = email.trim();
+  if (!emailRegex.test(trimmedEmail)) return { isValid: false, error: 'Please enter a valid email address' };
+  return { isValid: true, email: trimmedEmail.toLowerCase() };
 };
 
 router.post('/signup', async (req, res) => {
-  const { name, email, password, community } = req.body;
+  const { name, email, password } = req.body; // Community is no longer required here
 
   try {
-    if (!name || !email || !password || !community) {
-      return res.status(400).json({ message: 'All fields are required, including community' });
+    if (!name || !email || !password) {
+      return res.status(400).json({ message: 'All fields are required' });
     }
 
     const emailValidation = validateEmail(email);
@@ -33,7 +35,7 @@ router.post('/signup', async (req, res) => {
       name: name.trim(), 
       email: emailValidation.email, 
       password,
-      community // ADDED
+      // No community on signup
     });
 
     const salt = await bcrypt.genSalt(10);
@@ -44,6 +46,7 @@ router.post('/signup', async (req, res) => {
       message: 'Account created successfully! Please log in.',
     });
   } catch (error) {
+    console.error('[AUTH] Signup error:', error);
     res.status(500).json({ message: 'Server error during registration' });
   }
 });
@@ -53,6 +56,7 @@ router.post('/login', async (req, res) => {
   try {
     const user = await User.findOne({ email });
     if (!user) return res.status(400).json({ message: 'Invalid credentials.' });
+    
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) return res.status(400).json({ message: 'Invalid credentials.' });
 
@@ -66,6 +70,7 @@ router.post('/login', async (req, res) => {
       });
     });
   } catch (error) {
+    console.error('[AUTH] Login error:', error);
     res.status(500).send('Server error');
   }
 });

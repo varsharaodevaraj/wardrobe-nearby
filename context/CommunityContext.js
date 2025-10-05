@@ -5,7 +5,7 @@ import { useAuth } from './AuthContext';
 const CommunityContext = createContext();
 
 export const CommunityProvider = ({ children }) => {
-  const { user } = useAuth();
+  const { user, updateUserInContext } = useAuth(); // Get updater function
   const [communities, setCommunities] = useState([]);
   const [userCommunity, setUserCommunity] = useState(user?.community || null);
   const [loading, setLoading] = useState(false);
@@ -31,9 +31,18 @@ export const CommunityProvider = ({ children }) => {
   }, [user]);
 
   const updateUserCommunity = async (newCommunity) => {
-    // In a real app, you would make an API call here to update the user's profile
-    setUserCommunity(newCommunity);
-    // You might need to update the user object in AuthContext as well
+    try {
+      setLoading(true);
+      // Make the API call to update the community on the backend
+      const { user: updatedUser } = await api('/users/community', 'PUT', { community: newCommunity });
+      // Update the user in the AuthContext so the whole app knows
+      await updateUserInContext(updatedUser);
+      setUserCommunity(updatedUser.community);
+    } catch (error) {
+        console.error('[COMMUNITY_CONTEXT] Error updating community:', error);
+    } finally {
+        setLoading(false);
+    }
   };
 
   const value = {

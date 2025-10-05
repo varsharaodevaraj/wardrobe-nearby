@@ -4,6 +4,40 @@ const User = require('../models/User');
 const Item = require('../models/Item'); // Make sure to require the Item model
 const auth = require('../middleware/auth');
 
+// @route   PUT /api/users/community
+// @desc    Update the user's community
+// @access  Private
+router.put('/community', auth, async (req, res) => {
+  try {
+    const { community } = req.body; // Can be a string or null/undefined to leave
+
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    user.community = community || null;
+    await user.save();
+
+    // Also update all of the user's existing items to reflect the new community
+    await Item.updateMany({ user: req.user.id }, { $set: { community: user.community } });
+
+    // Return the updated user object
+    const updatedUser = {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      community: user.community,
+    };
+
+    res.json({ message: 'Community updated successfully', user: updatedUser });
+  } catch (error) {
+    console.error('Error updating community:', error);
+    res.status(500).json({ message: 'Server error while updating community' });
+  }
+});
+
+
 // @route   GET /api/users/profile/:userId
 // @desc    Get user profile by ID
 // @access  Private
