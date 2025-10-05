@@ -23,15 +23,27 @@ const UserSchema = new mongoose.Schema({
     enum: ['regular', 'super-lender', 'super-renter'],
     default: 'regular'
   },
-  community: { // NEW FIELD
+  community: {
     type: String,
-    required: false, 
+    required: false,
   },
   profileImage: { 
     type: String 
   },
   bio: { 
     type: String 
+  },
+  pushToken: { // NEW FIELD for notifications
+    type: String,
+  },
+  // NEW FIELDS for user-to-user reviews
+  averageRating: {
+    type: Number,
+    default: 0
+  },
+  totalRatings: {
+    type: Number,
+    default: 0
   },
   joinDate: { 
     type: Date, 

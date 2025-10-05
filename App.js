@@ -13,7 +13,7 @@ import { NotificationProvider } from "./context/NotificationContext";
 import { CommunityProvider } from "./context/CommunityContext";
 import ErrorBoundary from "./components/ErrorBoundary";
 
-// Import all screens
+// Screen imports
 import WelcomeScreen from "./screens/WelcomeScreen";
 import LoginScreen from "./screens/LoginScreen";
 import SignUpScreen from "./screens/SignUpScreen";
@@ -21,12 +21,14 @@ import HomeScreen from "./screens/HomeScreen";
 import AddItemScreen from "./screens/AddItemScreen";
 import ItemDetailScreen from "./screens/ItemDetailScreen";
 import ProfileScreen from "./screens/ProfileScreen";
-import EditItemScreen from "./screens/EditItemScreen";
+import EditProfileScreen from "./screens/EditProfileScreen";
 import ChatListScreen from "./screens/ChatListScreen";
 import ChatScreen from "./screens/ChatScreen";
 import MyRentalsScreen from "./screens/MyRentalsScreen";
 import WishlistScreen from "./screens/WishlistScreen";
 import MyListingsScreen from "./screens/MyListingsScreen";
+import EditItemScreen from "./screens/EditItemScreen";
+
 
 const AuthStack = createNativeStackNavigator();
 const MainStack = createNativeStackNavigator();
@@ -37,6 +39,7 @@ function MainFlow() {
     <MainStack.Navigator screenOptions={{ headerShown: false }}>
       <MainStack.Screen name="MainTabs" component={MainTabs} />
       <MainStack.Screen name="ItemDetail" component={ItemDetailScreen} />
+      <MainStack.Screen name="EditProfile" component={EditProfileScreen} />
       <MainStack.Screen name="EditItem" component={EditItemScreen} />
       <MainStack.Screen name="Chat" component={ChatScreen} />
       <MainStack.Screen name="MyRentals" component={MyRentalsScreen} />
@@ -57,8 +60,8 @@ function MainTabs() {
         tabBarStyle: {
           backgroundColor: '#FFFFFF',
           borderTopColor: '#E9ECEF',
-          paddingBottom: insets.bottom > 0 ? insets.bottom : 10,
-          height: 60 + (insets.bottom > 0 ? insets.bottom : 10),
+          paddingBottom: insets.bottom > 0 ? insets.bottom : 5,
+          height: 60 + (insets.bottom > 0 ? insets.bottom : 5),
         },
         tabBarLabelStyle: {
           fontSize: 12,

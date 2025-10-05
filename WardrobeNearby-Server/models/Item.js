@@ -28,7 +28,6 @@ const ItemSchema = new Schema({
   },
   community: { // NEW FIELD
     type: String,
-    required: true,
   },
   unavailableDates: [{
     type: String

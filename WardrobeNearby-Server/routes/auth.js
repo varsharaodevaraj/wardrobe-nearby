@@ -4,7 +4,6 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 
-// Email validation utility function
 const validateEmail = (email) => {
   const emailRegex = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/;
   if (!email) return { isValid: false, error: 'Email is required' };
@@ -14,7 +13,7 @@ const validateEmail = (email) => {
 };
 
 router.post('/signup', async (req, res) => {
-  const { name, email, password } = req.body; // Community is no longer required here
+  const { name, email, password } = req.body;
 
   try {
     if (!name || !email || !password) {
@@ -35,18 +34,14 @@ router.post('/signup', async (req, res) => {
       name: name.trim(), 
       email: emailValidation.email, 
       password,
-      // No community on signup
     });
 
     const salt = await bcrypt.genSalt(10);
     user.password = await bcrypt.hash(password, salt);
     await user.save();
 
-    res.status(201).json({ 
-      message: 'Account created successfully! Please log in.',
-    });
+    res.status(201).json({ message: 'Account created successfully! Please log in.' });
   } catch (error) {
-    console.error('[AUTH] Signup error:', error);
     res.status(500).json({ message: 'Server error during registration' });
   }
 });
@@ -66,11 +61,10 @@ router.post('/login', async (req, res) => {
       if (err) throw err;
       res.status(200).json({ 
         token,
-        user: { id: user.id, name: user.name, email: user.email, community: user.community } 
+        user: { id: user.id, name: user.name, email: user.email, community: user.community, bio: user.bio, profileImage: user.profileImage } 
       });
     });
   } catch (error) {
-    console.error('[AUTH] Login error:', error);
     res.status(500).send('Server error');
   }
 });
