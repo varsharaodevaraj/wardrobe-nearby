@@ -30,6 +30,7 @@ import MyRentalsScreen from "./screens/MyRentalsScreen";
 import WishlistScreen from "./screens/WishlistScreen";
 import MyListingsScreen from "./screens/MyListingsScreen";
 import EditItemScreen from "./screens/EditItemScreen";
+import PostUserReviewScreen from "./screens/PostUserReviewScreen";
 
 
 const AuthStack = createNativeStackNavigator();
@@ -47,6 +48,7 @@ function MainFlow() {
       <MainStack.Screen name="MyRentals" component={MyRentalsScreen} />
       <MainStack.Screen name="Wishlist" component={WishlistScreen} />
       <MainStack.Screen name="MyListings" component={MyListingsScreen} />
+      <MainStack.Screen name="PostUserReview" component={PostUserReviewScreen} />
     </MainStack.Navigator>
   );
 }

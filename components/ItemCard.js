@@ -6,19 +6,22 @@ import { useAuth } from '../context/AuthContext';
 import { useRental } from '../context/RentalContext';
 import StarRating from './StarRating';
 
-// We receive 'item' and optional 'onDelete' and 'onToggleAvailability' functions as props.
 const ItemCard = React.memo(({ item, onDelete, onToggleAvailability }) => {
   const navigation = useNavigation();
   const { user } = useAuth();
   const { getRentalStatus } = useRental();
   const [imageError, setImageError] = useState(false);
 
-  // Check if current user is the owner
+  // **THIS IS THE FIX**: Handle cases where item.user might be null
+  if (!item || !item.user) {
+    // Render a placeholder or nothing at all to prevent a crash
+    return null; 
+  }
+
   const isOwner = user?.id === (typeof item.user === 'object' ? item.user._id : item.user);
   const ownerName = typeof item.user === 'object' ? item.user.name : 'Owner';
   const ownerStatus = typeof item.user === 'object' ? item.user.status : 'regular';
 
-  // Check if user has already requested this item
   const hasRequested = !isOwner && getRentalStatus(item._id);
 
   const handlePress = useCallback(() => {

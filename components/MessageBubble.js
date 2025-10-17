@@ -51,12 +51,13 @@ const MessageBubble = ({ message, isOwn }) => {
                     <Image source={{ uri: message.itemInfo.itemImage }} style={styles.requestImage} />
                     <View style={styles.requestTextContainer}>
                         <Text style={[styles.requestTitle, isOwn && styles.ownMessageText]}>{message.itemInfo.itemName}</Text>
-                        <Text style={[styles.requestSubtitle, isOwn && styles.ownMessageText]}>Rental Request</Text>
+                        <Text style={[styles.requestSubtitle, isOwn && styles.ownMessageText]}>Rental Request Sent</Text>
                     </View>
                 </TouchableOpacity>
                 <Text style={[isOwn ? styles.ownMessageText : styles.otherMessageText, { marginTop: 8 }]}>
                     {message.content}
                 </Text>
+                
                 <View style={styles.footer}>
                     <Text style={isOwn ? styles.ownTimeText : styles.otherTimeText}>
                         {formatTime(message.timestamp)}

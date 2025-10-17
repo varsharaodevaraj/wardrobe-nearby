@@ -62,6 +62,12 @@ const ChatScreen = ({ route, navigation }) => {
       joinChat(chat._id);
       clearNewMessages(chat._id);
 
+      const handleNewMessage = (data) => {
+        if (data.chatId === chat._id) {
+          setChat(prev => ({...prev, messages: [...prev.messages, data.message]}));
+        }
+      }
+
       const handleChatCleared = ({ chatId: clearedChatId }) => {
         if (clearedChatId === chat._id) {
             setChat(prev => ({ ...prev, messages: [] }));
@@ -73,7 +79,8 @@ const ChatScreen = ({ route, navigation }) => {
           setChat(prev => ({ ...prev, messages: prev.messages.filter(msg => msg._id !== messageId) }));
         }
       };
-
+      
+      socket?.on('newMessage', handleNewMessage);
       socket?.on('chatCleared', handleChatCleared);
       socket?.on('messageDeleted', handleDeletedMessage);
 
@@ -81,6 +88,7 @@ const ChatScreen = ({ route, navigation }) => {
         leaveChat(chat._id);
         if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
         stopTyping(chat._id);
+        socket?.off('newMessage', handleNewMessage);
         socket?.off('chatCleared', handleChatCleared);
         socket?.off('messageDeleted', handleDeletedMessage);
       };
@@ -149,10 +157,25 @@ const ChatScreen = ({ route, navigation }) => {
       }},
     ]);
   }, [chat, deleteRealtimeMessage, loadChat]);
+  
+  const handleRequestUpdate = useCallback(async (rentalId, status) => {
+    try {
+      await api(`/rentals/${rentalId}/status`, 'PUT', { status });
+      Alert.alert('Success', `Request has been ${status}.`);
+      loadChat(); 
+    } catch (error) {
+      Alert.alert('Error', error.message || 'Failed to update status.');
+    }
+  }, [loadChat]);
 
   const renderMessage = ({ item }) => (
     <TouchableOpacity onLongPress={() => item.sender._id === user.id && handleDeleteMessage(item._id)}>
-      <MessageBubble message={item} isOwn={item.sender._id === user.id} />
+      <MessageBubble 
+        message={item} 
+        isOwn={item.sender._id === user.id}
+        onUpdateRequestStatus={handleRequestUpdate}
+        isChatActive={chat?.isActive}
+      />
     </TouchableOpacity>
   );
   

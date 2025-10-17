@@ -67,23 +67,26 @@ router.post('/request', auth, async (req, res) => {
     });
     await newRental.save();
 
+    // Find chat based on participants ONLY.
     let chat = await Chat.findOne({
       participants: { $all: [req.user.id, item.user._id] },
-      relatedItem: itemId,
     });
 
     if (!chat) {
       chat = new Chat({
         participants: [req.user.id, item.user._id],
-        relatedItem: itemId,
-        isActive: false // Chat starts as inactive
+        relatedItem: itemId, // Set context for the first message
       });
+    } else {
+      chat.relatedItem = itemId; // Update context to the latest item
     }
+    
+    chat.isActive = true; // All chats are always active for conversation
 
     const isForSale = item.listingType === 'sell';
     let messageContent = isForSale 
-      ? `I'm interested in purchasing this item.`
-      : `I'd like to rent this item from ${new Date(startDate).toLocaleDateString()} to ${new Date(endDate).toLocaleDateString()}.`;
+      ? `I've sent a request to purchase this item.`
+      : `I've sent a request to rent this item from ${new Date(startDate).toLocaleDateString()} to ${new Date(endDate).toLocaleDateString()}.`;
 
     if (customMessage && customMessage.trim()) {
       messageContent += `\n\nMy message: "${customMessage.trim()}"`;
@@ -93,11 +96,12 @@ router.post('/request', auth, async (req, res) => {
       sender: req.user.id,
       content: messageContent,
       timestamp: new Date(),
-      messageType: 'request',
+      messageType: 'request', // This identifies it as a special message
       itemInfo: {
           itemId: item._id,
           itemName: item.name,
           itemImage: item.images[item.featuredImageIndex || 0] || item.imageUrl,
+          rentalId: newRental._id,
       }
     };
 
@@ -108,7 +112,7 @@ router.post('/request', auth, async (req, res) => {
     res.status(201).json({ 
       message: 'Request submitted and message sent!', 
       rental: newRental,
-      chatCreated: true 
+      chatId: chat._id
     });
   } catch (error) {
     console.error('Error in rental request:', error);
@@ -149,35 +153,37 @@ router.put('/:id/status', auth, async (req, res) => {
                 return res.status(401).json({ message: 'Only the item owner can accept or decline requests.' });
             }
             if (rental.status !== 'pending') {
-                return res.status(400).json({ message: 'Only pending requests can be accepted or declined.' });
+                return res.status(400).json({ message: 'This request has already been actioned.' });
             }
-            if (status === 'accepted') {
-                if (rental.item.listingType === 'rent' && rental.startDate && rental.endDate) {
-                    const rentalDates = getDatesInRange(rental.startDate, rental.endDate);
-                    await Item.findByIdAndUpdate(rental.item._id, {
-                        $addToSet: { unavailableDates: { $each: rentalDates } }
-                    });
-                }
-                if (rental.item.listingType === 'sell') {
-                    await Item.findByIdAndUpdate(rental.item._id, { isAvailable: false });
-                }
-                
-                // Activate the chat and send a system message
-                const chat = await Chat.findOne({
-                    participants: { $all: [rental.owner, rental.borrower] },
-                    relatedItem: rental.item._id,
-                });
+            
+            const chat = await Chat.findOne({
+                participants: { $all: [rental.owner, rental.borrower] },
+            });
 
-                if (chat) {
-                    chat.isActive = true;
-                    const systemMessage = {
-                        sender: rental.owner, // System message from owner's side
-                        content: `Your rental request was accepted! You can now chat freely.`,
-                        messageType: 'system',
-                    };
-                    chat.messages.push(systemMessage);
-                    await chat.save();
+            if (chat) {
+                let systemMessageContent = '';
+                if (status === 'accepted') {
+                    if (rental.item.listingType === 'rent' && rental.startDate && rental.endDate) {
+                        const rentalDates = getDatesInRange(rental.startDate, rental.endDate);
+                        await Item.findByIdAndUpdate(rental.item._id, {
+                            $addToSet: { unavailableDates: { $each: rentalDates } }
+                        });
+                    }
+                    if (rental.item.listingType === 'sell') {
+                        await Item.findByIdAndUpdate(rental.item._id, { isAvailable: false });
+                    }
+                    systemMessageContent = `Your request for "${rental.item.name}" was accepted!`;
+                } else { // Declined
+                    systemMessageContent = `Your request for "${rental.item.name}" was declined.`;
                 }
+
+                const systemMessage = {
+                    sender: rental.owner, 
+                    content: systemMessageContent,
+                    messageType: 'system',
+                };
+                chat.messages.push(systemMessage);
+                await chat.save();
             }
         } else if (status === 'completed') {
             if (rental.owner.toString() !== req.user.id && rental.borrower.toString() !== req.user.id) {
