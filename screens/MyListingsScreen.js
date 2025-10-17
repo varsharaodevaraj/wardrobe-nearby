@@ -72,6 +72,29 @@ const MyListingsScreen = ({ navigation }) => {
     );
   };
 
+  const handleToggleAvailability = async (itemId, newAvailability) => {
+    // Optimistically update the UI first for a better user experience
+    setListings(prevListings =>
+      prevListings.map(item =>
+        item._id === itemId ? { ...item, isAvailable: newAvailability } : item
+      )
+    );
+
+    try {
+      // Then, make the API call in the background
+      await api(`/items/${itemId}`, 'PUT', { isAvailable: newAvailability });
+    } catch (error) {
+      // If the API call fails, revert the change and show an error
+      console.error("Failed to update availability:", error);
+      Alert.alert("Error", "Could not update item availability. Please try again.");
+      setListings(prevListings =>
+        prevListings.map(item =>
+          item._id === itemId ? { ...item, isAvailable: !newAvailability } : item
+        )
+      );
+    }
+  };
+
   if (loading && !refreshing) {
     return (
       <SafeAreaView style={styles.container}>
@@ -95,7 +118,13 @@ const MyListingsScreen = ({ navigation }) => {
 
       <FlatList
         data={listings}
-        renderItem={({ item }) => <ItemCard item={item} onDelete={handleDelete} />}
+        renderItem={({ item }) => (
+            <ItemCard 
+                item={item} 
+                onDelete={handleDelete}
+                onToggleAvailability={handleToggleAvailability}
+            />
+        )}
         keyExtractor={(item) => item._id}
         contentContainerStyle={styles.listContent}
         refreshControl={
@@ -109,7 +138,7 @@ const MyListingsScreen = ({ navigation }) => {
             </Text>
             <TouchableOpacity
               style={styles.addButton}
-              onPress={() => navigation.navigate("AddItem")}
+              onPress={() => navigation.navigate("MainTabs", { screen: "AddItem" })}
             >
               <Text style={styles.addButtonText}>List Your First Item</Text>
             </TouchableOpacity>
