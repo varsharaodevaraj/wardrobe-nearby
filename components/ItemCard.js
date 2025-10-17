@@ -1,13 +1,13 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, Image, TouchableOpacity, Switch } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
 import { useRental } from '../context/RentalContext';
 import StarRating from './StarRating';
 
-// We receive 'item' and an optional 'onDelete' function as props.
-const ItemCard = React.memo(({ item, onDelete }) => {
+// We receive 'item' and optional 'onDelete' and 'onToggleAvailability' functions as props.
+const ItemCard = React.memo(({ item, onDelete, onToggleAvailability }) => {
   const navigation = useNavigation();
   const { user } = useAuth();
   const { getRentalStatus } = useRental();
@@ -21,7 +21,6 @@ const ItemCard = React.memo(({ item, onDelete }) => {
   // Check if user has already requested this item
   const hasRequested = !isOwner && getRentalStatus(item._id);
 
-  // --- HANDLE PRESS EVENT ---
   const handlePress = useCallback(() => {
     navigation.navigate('ItemDetail', { item: item });
   }, [navigation, item]);
@@ -108,6 +107,7 @@ const ItemCard = React.memo(({ item, onDelete }) => {
           </View>
         )}
 
+        {/* Availability Status with Toggle */}
         <View style={styles.statusContainer}>
           <View style={[
             styles.availabilityBadge,
@@ -125,6 +125,15 @@ const ItemCard = React.memo(({ item, onDelete }) => {
               {item.isAvailable !== false ? 'Available' : 'Not Available'}
             </Text>
           </View>
+          {isOwner && onToggleAvailability && (
+            <Switch
+              value={item.isAvailable !== false}
+              onValueChange={(newValue) => onToggleAvailability(item._id, newValue)}
+              trackColor={{ false: "#CED4DA", true: "#E0BBE4" }}
+              thumbColor={item.isAvailable !== false ? "#957DAD" : "#f4f3f4"}
+              style={styles.availabilitySwitch}
+            />
+          )}
         </View>
 
         <Text style={styles.category}>{item.category}</Text>
@@ -155,12 +164,12 @@ const styles = StyleSheet.create({
         elevation: 5,
     },
     deleteButton: {
-      position: 'absolute',
-      top: 10,
-      right: 10,
-      backgroundColor: 'rgba(255, 255, 255, 0.8)',
-      padding: 8,
-      borderRadius: 20,
+        position: 'absolute',
+        top: 10,
+        right: 10,
+        backgroundColor: 'rgba(255, 255, 255, 0.8)',
+        padding: 8,
+        borderRadius: 20,
     },
     image: {
         width: '100%',
@@ -275,6 +284,9 @@ const styles = StyleSheet.create({
     },
     statusContainer: {
         marginVertical: 5,
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
     },
     availabilityBadge: {
         flexDirection: 'row',
@@ -301,8 +313,9 @@ const styles = StyleSheet.create({
     unavailableText: {
         color: '#D32F2F',
     },
-    
-    // Rating Styles
+    availabilitySwitch: {
+      transform: [{ scaleX: 0.8 }, { scaleY: 0.8 }]
+    },
     ratingContainer: {
         flexDirection: 'row',
         alignItems: 'center',

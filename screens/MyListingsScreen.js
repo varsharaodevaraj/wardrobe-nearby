@@ -95,6 +95,7 @@ const MyListingsScreen = ({ navigation }) => {
     }
   };
 
+
   if (loading && !refreshing) {
     return (
       <SafeAreaView style={styles.container}>
