@@ -1,8 +1,8 @@
-import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
+import React, { createContext, useContext, useEffect, useState, useRef, useCallback } from 'react';
 import io from 'socket.io-client';
 import { useAuth } from './AuthContext';
-// UPDATE: Import the simple BASE_URL from the correct config file
 import { BASE_URL } from '../config/apiConfig';
+import api from '../utils/api';
 
 const ChatContext = createContext();
 
@@ -20,29 +20,40 @@ export const ChatProvider = ({ children }) => {
   const [isConnected, setIsConnected] = useState(false);
   const [typingUsers, setTypingUsers] = useState({});
   const [newMessages, setNewMessages] = useState([]);
+  const [unreadCounts, setUnreadCounts] = useState({});
   const socketRef = useRef(null);
   const currentChatId = useRef(null);
+
+  const fetchUnreadCounts = useCallback(async () => {
+    if (!user) return;
+    try {
+      const chats = await api('/chats');
+      const counts = chats.reduce((acc, chat) => {
+        const userUnread = chat.unreadCount.find(uc => uc.user === user.id);
+        acc[chat._id] = userUnread ? userUnread.count : 0;
+        return acc;
+      }, {});
+      setUnreadCounts(counts);
+    } catch (error) {
+      console.error('[CHAT_CONTEXT] Failed to fetch initial unread counts', error);
+    }
+  }, [user]);
 
   useEffect(() => {
     if (user?.id) {
       console.log('[CHAT_CONTEXT] Initializing WebSocket connection...');
-      
-      // SIMPLIFIED: No need for async logic, just use the imported BASE_URL
       console.log('[CHAT_CONTEXT] Connecting to:', BASE_URL);
-      
+
       const newSocket = io(BASE_URL, {
         transports: ['websocket', 'polling'],
         reconnection: true,
         reconnectionAttempts: 5,
-        reconnectionDelay: 1000,
-        timeout: 20000,
-        forceNew: true,
       });
 
       socketRef.current = newSocket;
       setSocket(newSocket);
+      fetchUnreadCounts();
 
-      // Connection events
       newSocket.on('connect', () => {
         console.log('[CHAT_CONTEXT] ✅ Connected to WebSocket server');
         setIsConnected(true);
@@ -56,49 +67,61 @@ export const ChatProvider = ({ children }) => {
 
       newSocket.on('connect_error', (error) => {
         console.error('[CHAT_CONTEXT] Connection error:', error.message);
-        console.error('[CHAT_CONTEXT] Socket URL used:', BASE_URL);
-        setIsConnected(false);
       });
 
-      // Real-time message events
       newSocket.on('newMessage', (data) => {
         console.log('[CHAT_CONTEXT] 💬 New message received:', data);
         setNewMessages(prev => [...prev, data]);
+        if (data.chatId !== currentChatId.current) {
+          setUnreadCounts(prev => ({
+            ...prev,
+            [data.chatId]: (prev[data.chatId] || 0) + 1,
+          }));
+        }
       });
 
-      // Typing indicator events
       newSocket.on('userTyping', (data) => {
         const { chatId, userId, user: userData, isTyping } = data;
-        setTypingUsers(prev => ({
-          ...prev,
-          [chatId]: isTyping
-            ? [...(prev[chatId] || []).filter(u => u._id !== userId), { _id: userId, ...userData }]
-            : (prev[chatId] || []).filter(u => u._id !== userId)
-        }));
+        setTypingUsers(prev => {
+            const currentTypers = prev[chatId] || [];
+            if (isTyping) {
+                if (currentTypers.some(u => u._id === userId)) return prev;
+                return {...prev, [chatId]: [...currentTypers, { _id: userId, name: userData.name }]};
+            } else {
+                return {...prev, [chatId]: currentTypers.filter(u => u._id !== userId)};
+            }
+        });
       });
 
-      // Cleanup on unmount
       return () => {
         if (socketRef.current) {
           console.log('[CHAT_CONTEXT] Cleaning up WebSocket connection');
           socketRef.current.disconnect();
         }
       };
+    } else {
+      if (socketRef.current) {
+        socketRef.current.disconnect();
+        setSocket(null);
+        setIsConnected(false);
+        setUnreadCounts({});
+      }
     }
-  }, [user?.id]);
+  }, [user?.id, fetchUnreadCounts]);
 
-  // Chat room management
   const joinChat = (chatId) => {
     if (socketRef.current && chatId) {
-      console.log(`[CHAT_CONTEXT] 👥 Joining chat room: ${chatId}`);
       socketRef.current.emit('joinChat', chatId);
       currentChatId.current = chatId;
+      if (unreadCounts[chatId] > 0) {
+        setUnreadCounts(prev => ({ ...prev, [chatId]: 0 }));
+        api(`/chats/${chatId}/mark-read`, 'PUT');
+      }
     }
   };
 
   const leaveChat = (chatId) => {
     if (socketRef.current && chatId) {
-      console.log(`[CHAT_CONTEXT] 👋 Leaving chat room: ${chatId}`);
       socketRef.current.emit('leaveChat', chatId);
       setTypingUsers(prev => ({ ...prev, [chatId]: [] }));
       if (currentChatId.current === chatId) {
@@ -107,35 +130,27 @@ export const ChatProvider = ({ children }) => {
     }
   };
 
-  // Real-time message sending
   const sendRealtimeMessage = (chatId, message) => {
-    if (socketRef.current && chatId && message) {
+    if (socketRef.current) {
       socketRef.current.emit('sendMessage', { chatId, message });
     }
   };
   
   const deleteRealtimeMessage = (chatId, messageId) => {
-    if (socketRef.current && chatId && messageId) {
+    if (socketRef.current) {
       socketRef.current.emit('deleteMessage', { chatId, messageId });
     }
   };
 
-  // Typing indicators
   const startTyping = (chatId) => {
-    if (socketRef.current && chatId && user) {
+    if (socketRef.current && user) {
       socketRef.current.emit('startTyping', { chatId, user: { _id: user.id, name: user.name } });
     }
   };
 
   const stopTyping = (chatId) => {
-    if (socketRef.current && chatId) {
+    if (socketRef.current) {
       socketRef.current.emit('stopTyping', { chatId });
-    }
-  };
-
-  const markMessagesAsRead = (chatId) => {
-    if (socketRef.current && chatId && user) {
-      socketRef.current.emit('markMessagesRead', { chatId, userId: user.id });
     }
   };
 
@@ -143,9 +158,12 @@ export const ChatProvider = ({ children }) => {
     setNewMessages(prev => prev.filter(msg => msg.chatId !== chatId));
   };
 
+  // *** THIS IS THE RESTORED FUNCTION ***
   const getTypingUsers = (chatId) => {
     return typingUsers[chatId] || [];
   };
+
+  const totalUnreadCount = Object.values(unreadCounts).reduce((sum, count) => sum + count, 0);
 
   const contextValue = {
     socket,
@@ -156,11 +174,11 @@ export const ChatProvider = ({ children }) => {
     deleteRealtimeMessage,
     startTyping,
     stopTyping,
-    markMessagesAsRead,
     newMessages,
     clearNewMessages,
-    getTypingUsers,
-    currentChatId: currentChatId.current,
+    getTypingUsers, // *** IT IS NOW CORRECTLY INCLUDED HERE ***
+    unreadCounts,
+    totalUnreadCount,
   };
 
   return (

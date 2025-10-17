@@ -12,11 +12,14 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
+import { useChatContext } from '../context/ChatContext';
 import { useFocusEffect } from '@react-navigation/native';
 import api from '../utils/api';
+import MessageBadge from '../components/MessageBadge';
 
 const ChatListScreen = ({ navigation }) => {
   const { user } = useAuth();
+  const { unreadCounts } = useChatContext();
   const [chats, setChats] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -32,17 +35,16 @@ const ChatListScreen = ({ navigation }) => {
       setRefreshing(false);
     }
   }, []);
-  
+
   const onRefresh = useCallback(() => {
     setRefreshing(true);
     loadChats();
   }, [loadChats]);
 
-  // Refresh chats when screen comes into focus
   useFocusEffect(
     React.useCallback(() => {
       loadChats();
-    }, [])
+    }, [loadChats])
   );
 
   const formatLastMessageTime = (timestamp) => {
@@ -65,9 +67,7 @@ const ChatListScreen = ({ navigation }) => {
   const renderChatItem = ({ item }) => {
     const otherParticipant = item.participants.find(p => p._id !== user.id);
     const lastMessage = item.messages[item.messages.length - 1];
-    const unreadCount = item.messages.filter(
-      msg => !msg.isRead && msg.sender._id !== user.id
-    ).length;
+    const unreadCount = unreadCounts[item._id] || 0;
 
     return (
       <TouchableOpacity
@@ -93,7 +93,7 @@ const ChatListScreen = ({ navigation }) => {
           <View style={styles.chatHeader}>
             <Text style={styles.participantName}>{otherParticipant?.name}</Text>
             <Text style={styles.timestamp}>
-              {formatLastMessageTime(item.lastMessage)}
+              {lastMessage ? formatLastMessageTime(lastMessage.timestamp) : ''}
             </Text>
           </View>
 
@@ -111,7 +111,7 @@ const ChatListScreen = ({ navigation }) => {
 
         {unreadCount > 0 && (
           <View style={styles.unreadBadge}>
-            <Text style={styles.unreadText}>{unreadCount}</Text>
+            <Text style={styles.unreadText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
           </View>
         )}
       </TouchableOpacity>
@@ -123,7 +123,7 @@ const ChatListScreen = ({ navigation }) => {
       <Ionicons name="chatbubbles-outline" size={64} color="#CED4DA" />
       <Text style={styles.emptyTitle}>No Messages Yet</Text>
       <Text style={styles.emptySubtitle}>
-        Start a conversation by messaging item owners or people interested in your items.
+        Start a conversation by messaging item owners.
       </Text>
     </View>
   );
@@ -248,6 +248,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginLeft: 10,
+    paddingHorizontal: 5,
   },
   unreadText: {
     color: 'white',

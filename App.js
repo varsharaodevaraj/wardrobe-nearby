@@ -1,4 +1,5 @@
 import React from "react";
+import { View } from "react-native";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
@@ -8,10 +9,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { WishlistProvider } from "./context/WishlistContext";
 import { RentalProvider } from "./context/RentalContext";
-import { ChatProvider } from "./context/ChatContext";
+import { ChatProvider, useChatContext } from "./context/ChatContext";
 import { NotificationProvider } from "./context/NotificationContext";
 import { CommunityProvider } from "./context/CommunityContext";
 import ErrorBoundary from "./components/ErrorBoundary";
+import MessageBadge from "./components/MessageBadge";
 
 // Screen imports
 import WelcomeScreen from "./screens/WelcomeScreen";
@@ -51,6 +53,7 @@ function MainFlow() {
 
 function MainTabs() {
   const insets = useSafeAreaInsets();
+  const { totalUnreadCount } = useChatContext();
   return (
     <Tab.Navigator
       screenOptions={{
@@ -69,23 +72,30 @@ function MainTabs() {
         },
       }}
     >
-      <Tab.Screen 
-        name="Explore" 
+      <Tab.Screen
+        name="Explore"
         component={HomeScreen}
         options={{ tabBarIcon: ({ color, size }) => <Ionicons name="search-outline" size={size} color={color} /> }}
       />
-      <Tab.Screen 
-        name="AddItem" 
+      <Tab.Screen
+        name="AddItem"
         component={AddItemScreen}
         options={{ tabBarLabel: 'List Item', tabBarIcon: ({ color, size }) => <Ionicons name="add-circle-outline" size={size} color={color} /> }}
       />
-      <Tab.Screen 
-        name="Messages" 
+      <Tab.Screen
+        name="Messages"
         component={ChatListScreen}
-        options={{ tabBarIcon: ({ color, size }) => <Ionicons name="chatbubble-outline" size={size} color={color} /> }}
+        options={{
+          tabBarIcon: ({ color, size }) => (
+            <View>
+              <Ionicons name="chatbubble-outline" size={size} color={color} />
+              <MessageBadge count={totalUnreadCount} />
+            </View>
+          ),
+        }}
       />
-      <Tab.Screen 
-        name="Profile" 
+      <Tab.Screen
+        name="Profile"
         component={ProfileScreen}
         options={{ tabBarIcon: ({ color, size }) => <Ionicons name="person-circle-outline" size={size} color={color} /> }}
       />

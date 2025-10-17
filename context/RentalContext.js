@@ -6,17 +6,16 @@ const RentalContext = createContext();
 
 export const RentalProvider = ({ children }) => {
   const { user } = useAuth();
-  // Track rental request states for different items
   const [rentalStates, setRentalStates] = useState(new Map());
   const [loading, setLoading] = useState(false);
 
-  // Check if user has already requested a specific item
   const checkRentalStatus = useCallback(async (itemId) => {
+    if (!user) return false;
     try {
       setLoading(true);
-      const requests = await api('/rentals/outgoing?status=pending');
+      const requests = await api('/rentals/outgoing');
       const hasRequested = requests.some(
-        request => request.item._id === itemId
+        request => request.item._id === itemId && (request.status === 'pending' || request.status === 'accepted')
       );
       
       setRentalStates(prev => new Map(prev).set(itemId, hasRequested));
@@ -27,19 +26,17 @@ export const RentalProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [user]);
 
-  // Submit a rental request
   const submitRentalRequest = useCallback(async (itemId, customMessage = '') => {
     try {
       setLoading(true);
       
-      // Check if already requested first
       const currentStatus = rentalStates.get(itemId);
       if (currentStatus) {
         return { 
           success: false, 
-          message: 'You have already sent a request for this item. Please wait for the owner to respond.' 
+          message: 'You have already sent a request for this item.' 
         };
       }
       
@@ -49,16 +46,17 @@ export const RentalProvider = ({ children }) => {
       };
 
       console.log('[RENTAL_CONTEXT] Submitting rental request:', requestData);
+      // The API call will throw an error if the request already exists on the server.
       await api('/rentals/request', 'POST', requestData);
       
-      // Update the state to reflect that request has been sent
+      // Only update the state after the API call succeeds
       setRentalStates(prev => new Map(prev).set(itemId, true));
       
       return { success: true, message: 'Rental request sent successfully!' };
     } catch (error) {
       console.error('[RENTAL_CONTEXT] Error submitting rental request:', error);
       
-      // If the error is about already requesting, update our local state
+      // If the error is about already requesting, update our local state to be in sync.
       if (error.message && error.message.includes('already sent a request')) {
         setRentalStates(prev => new Map(prev).set(itemId, true));
       }
@@ -72,12 +70,10 @@ export const RentalProvider = ({ children }) => {
     }
   }, [rentalStates]);
 
-  // Get rental status for a specific item
   const getRentalStatus = useCallback((itemId) => {
     return rentalStates.get(itemId) || false;
   }, [rentalStates]);
 
-  // Clear rental status (useful for testing or when request is cancelled)
   const clearRentalStatus = useCallback((itemId) => {
     setRentalStates(prev => {
       const newMap = new Map(prev);
@@ -86,45 +82,40 @@ export const RentalProvider = ({ children }) => {
     });
   }, []);
 
-  // Load all rental statuses for current user
   const loadAllRentalStatuses = useCallback(async () => {
+    if (!user) return;
     try {
       setLoading(true);
-      const requests = await api('/rentals/outgoing?status=pending');
+      const requests = await api('/rentals/outgoing');
       const newStates = new Map();
       
       requests.forEach(request => {
-        newStates.set(request.item._id, true);
+        if (request.status === 'pending' || request.status === 'accepted') {
+          newStates.set(request.item._id, true);
+        }
       });
       
       setRentalStates(newStates);
-      return newStates;
     } catch (error) {
       console.error('[RENTAL_CONTEXT] Error loading rental statuses:', error);
-      return new Map();
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [user]);
 
-  // Load rental statuses when user changes
   useEffect(() => {
     if (user) {
       loadAllRentalStatuses();
     } else {
-      // Clear rental states when user logs out
       setRentalStates(new Map());
     }
   }, [user, loadAllRentalStatuses]);
 
   const value = {
-    // State
     loading,
-    
-    // Functions
-    checkRentalStatus,
     submitRentalRequest,
     getRentalStatus,
+    checkRentalStatus,
     clearRentalStatus,
     loadAllRentalStatuses,
   };
