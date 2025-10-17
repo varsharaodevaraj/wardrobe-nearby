@@ -4,6 +4,7 @@ const Review = require('../models/Review');
 const Item = require('../models/Item');
 const User = require('../models/User');
 const Rental = require('../models/Rental');
+const UserReview = require('../models/UserReview');
 const auth = require('../middleware/auth');
 
 // @route   GET /api/reviews/item/:itemId
@@ -369,5 +370,53 @@ router.get('/can-review/:itemId', auth, async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 });
+
+
+// @route   POST /api/reviews/user-review
+// @desc    Create a new user-to-user review
+// @access  Private
+router.post('/user-review', auth, async (req, res) => {
+    try {
+        const { rentalId, rating, comment } = req.body;
+        const reviewerId = req.user.id;
+
+        const rental = await Rental.findById(rentalId);
+        if (!rental) {
+            return res.status(404).json({ message: 'Rental not found.' });
+        }
+
+        const isRenter = rental.borrower.toString() === reviewerId;
+        const isOwner = rental.owner.toString() === reviewerId;
+
+        if (!isRenter && !isOwner) {
+            return res.status(403).json({ message: 'You are not part of this rental transaction.' });
+        }
+
+        const revieweeId = isRenter ? rental.owner : rental.borrower;
+        const role = isRenter ? 'renter' : 'lender';
+
+        const existingReview = await UserReview.findOne({ rental: rentalId, reviewer: reviewerId });
+        if (existingReview) {
+            return res.status(400).json({ message: 'You have already reviewed this transaction.' });
+        }
+
+        const newUserReview = new UserReview({
+            rental: rentalId,
+            reviewer: reviewerId,
+            reviewee: revieweeId,
+            role,
+            rating,
+            comment,
+        });
+
+        await newUserReview.save();
+        res.status(201).json({ message: 'Your review has been submitted successfully.' });
+
+    } catch (error) {
+        console.error("Error submitting user review:", error);
+        res.status(500).send('Server Error');
+    }
+});
+
 
 module.exports = router;

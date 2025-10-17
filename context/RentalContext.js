@@ -28,7 +28,7 @@ export const RentalProvider = ({ children }) => {
     }
   }, [user]);
 
-  const submitRentalRequest = useCallback(async (itemId, customMessage = '') => {
+  const submitRentalRequest = useCallback(async (itemId, startDate, endDate, customMessage = '') => {
     try {
       setLoading(true);
       
@@ -42,21 +42,19 @@ export const RentalProvider = ({ children }) => {
       
       const requestData = {
         itemId,
-        customMessage: customMessage.trim() || 'Hi! I\'m interested in renting this item.'
+        startDate,
+        endDate,
+        customMessage: customMessage.trim()
       };
 
-      console.log('[RENTAL_CONTEXT] Submitting rental request:', requestData);
-      // The API call will throw an error if the request already exists on the server.
       await api('/rentals/request', 'POST', requestData);
       
-      // Only update the state after the API call succeeds
       setRentalStates(prev => new Map(prev).set(itemId, true));
       
       return { success: true, message: 'Rental request sent successfully!' };
     } catch (error) {
       console.error('[RENTAL_CONTEXT] Error submitting rental request:', error);
       
-      // If the error is about already requesting, update our local state to be in sync.
       if (error.message && error.message.includes('already sent a request')) {
         setRentalStates(prev => new Map(prev).set(itemId, true));
       }

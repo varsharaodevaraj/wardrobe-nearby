@@ -58,12 +58,10 @@ const MyListingsScreen = ({ navigation }) => {
           onPress: async () => {
             try {
               await api(`/items/${itemId}`, "DELETE");
-              // Optimistically remove the item from the list for a faster UI response
               setListings(prevListings => prevListings.filter(item => item._id !== itemId));
             } catch (error) {
               console.error("Failed to delete item:", error);
               Alert.alert("Error", "Could not delete item. Please try again.");
-              // If the delete fails, refresh the list from the server
               fetchListings();
             }
           },
@@ -73,7 +71,6 @@ const MyListingsScreen = ({ navigation }) => {
   };
 
   const handleToggleAvailability = async (itemId, newAvailability) => {
-    // Optimistically update the UI first for a better user experience
     setListings(prevListings =>
       prevListings.map(item =>
         item._id === itemId ? { ...item, isAvailable: newAvailability } : item
@@ -81,12 +78,10 @@ const MyListingsScreen = ({ navigation }) => {
     );
 
     try {
-      // Then, make the API call in the background
       await api(`/items/${itemId}`, 'PUT', { isAvailable: newAvailability });
     } catch (error) {
-      // If the API call fails, revert the change and show an error
       console.error("Failed to update availability:", error);
-      Alert.alert("Error", "Could not update item availability. Please try again.");
+      Alert.alert("Error", "Could not update item availability.");
       setListings(prevListings =>
         prevListings.map(item =>
           item._id === itemId ? { ...item, isAvailable: !newAvailability } : item
@@ -94,7 +89,6 @@ const MyListingsScreen = ({ navigation }) => {
       );
     }
   };
-
 
   if (loading && !refreshing) {
     return (

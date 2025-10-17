@@ -43,7 +43,7 @@ const ChatScreen = ({ route, navigation }) => {
         throw new Error('Missing chat parameters');
       }
       setChat(chatData);
-      if (chatData?._id) {
+      if (chatData?._id && chatData.isActive) {
         await api(`/chats/${chatData._id}/mark-read`, 'PUT');
       }
     } catch (error) {
@@ -61,43 +61,49 @@ const ChatScreen = ({ route, navigation }) => {
     if (chat?._id) {
       joinChat(chat._id);
       clearNewMessages(chat._id);
+
+      const handleChatCleared = ({ chatId: clearedChatId }) => {
+        if (clearedChatId === chat._id) {
+            setChat(prev => ({ ...prev, messages: [] }));
+        }
+      };
+
+      const handleDeletedMessage = ({ chatId: deletedInChatId, messageId }) => {
+        if (deletedInChatId === chat?._id) {
+          setChat(prev => ({ ...prev, messages: prev.messages.filter(msg => msg._id !== messageId) }));
+        }
+      };
+
+      socket?.on('chatCleared', handleChatCleared);
+      socket?.on('messageDeleted', handleDeletedMessage);
+
       return () => {
         leaveChat(chat._id);
         if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
         stopTyping(chat._id);
+        socket?.off('chatCleared', handleChatCleared);
+        socket?.off('messageDeleted', handleDeletedMessage);
       };
     }
-  }, [chat?._id]);
+  }, [chat?._id, socket]);
 
-  useEffect(() => {
-    const chatNewMessages = newMessages.filter(msg => msg.chatId === chat?._id);
-    if (chatNewMessages.length > 0) {
-      setChat(prev => ({
-        ...prev,
-        messages: [...(prev?.messages || []), ...chatNewMessages.map(m => m.message)],
-      }));
-      clearNewMessages(chat._id);
-      setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
-      api(`/chats/${chat._id}/mark-read`, 'PUT');
-    }
-  }, [newMessages, chat?._id]);
-
-  useEffect(() => {
-    const handleDeletedMessage = ({ chatId: deletedInChatId, messageId }) => {
-      if (deletedInChatId === chat?._id) {
-        setChat(prev => ({
-          ...prev,
-          messages: prev.messages.filter(msg => msg._id !== messageId),
-        }));
-      }
-    };
-    socket?.on('messageDeleted', handleDeletedMessage);
-    return () => socket?.off('messageDeleted', handleDeletedMessage);
-  }, [socket, chat?._id]);
+  const handleClearChat = () => {
+    Alert.alert("Clear Chat", "Are you sure you want to delete all messages in this chat? This cannot be undone.", [
+      { text: "Cancel", style: "cancel" },
+      { text: "Clear Chat", style: "destructive", onPress: async () => {
+        try {
+          await api(`/chats/${chat._id}/messages`, 'DELETE');
+          setChat(prev => ({ ...prev, messages: [] }));
+        } catch (error) {
+          Alert.alert("Error", "Could not clear chat.");
+        }
+      }}
+    ]);
+  };
   
   const handleTyping = (text) => {
     setMessage(text);
-    if (text.trim() && !typingTimeoutRef.current) startTyping(chat._id);
+    if (text.trim() && !typingTimeoutRef.current && chat?.isActive) startTyping(chat._id);
     if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
     typingTimeoutRef.current = setTimeout(() => {
       stopTyping(chat._id);
@@ -106,7 +112,7 @@ const ChatScreen = ({ route, navigation }) => {
   };
 
   const sendMessage = async () => {
-    if (!message.trim() || !chat?._id || sending) return;
+    if (!message.trim() || !chat?._id || sending || !chat.isActive) return;
     stopTyping(chat._id);
     if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
     setSending(true);
@@ -166,13 +172,15 @@ const ChatScreen = ({ route, navigation }) => {
           <Text style={styles.headerName}>{otherParticipant?.name || participantName || 'Chat'}</Text>
           {chat?.relatedItem && <Text style={styles.headerSubtext} numberOfLines={1}>About: {chat.relatedItem.name}</Text>}
         </View>
-        <View style={{ width: 34 }} />
+        <TouchableOpacity onPress={handleClearChat} style={styles.optionsButton}>
+          <Ionicons name="ellipsis-vertical" size={24} color="#2c3e50" />
+        </TouchableOpacity>
       </View>
       
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={{ flex: 1 }}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : -100} // Adjust offset as needed
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : -100}
       >
         <FlatList
           ref={flatListRef}
@@ -191,23 +199,32 @@ const ChatScreen = ({ route, navigation }) => {
           ListFooterComponent={<TypingIndicator typingUsers={getTypingUsers(chat?._id)} />}
         />
         <SafeAreaView style={styles.inputContainerWrapper} edges={['bottom']}>
-          <View style={styles.inputContainer}>
-            <TextInput
-              style={styles.textInput}
-              value={message}
-              onChangeText={handleTyping}
-              placeholder="Type a message..."
-              placeholderTextColor="#95a5a6"
-              multiline
-            />
-            <TouchableOpacity
-              style={[styles.sendButton, (!message.trim() || sending) && styles.sendButtonDisabled]}
-              onPress={sendMessage}
-              disabled={!message.trim() || sending}
-            >
-              {sending ? <ActivityIndicator size="small" color="white" /> : <Ionicons name="send" size={20} color="white" />}
-            </TouchableOpacity>
-          </View>
+          {chat?.isActive ? (
+            <View style={styles.inputContainer}>
+              <TextInput
+                style={styles.textInput}
+                value={message}
+                onChangeText={handleTyping}
+                placeholder="Type a message..."
+                placeholderTextColor="#95a5a6"
+                multiline
+              />
+              <TouchableOpacity
+                style={[styles.sendButton, (!message.trim() || sending) && styles.sendButtonDisabled]}
+                onPress={sendMessage}
+                disabled={!message.trim() || sending}
+              >
+                {sending ? <ActivityIndicator size="small" color="white" /> : <Ionicons name="send" size={20} color="white" />}
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <View style={styles.disabledInputContainer}>
+                <Ionicons name="lock-closed" size={16} color="#7f8c8d" />
+                <Text style={styles.disabledInputText}>
+                    Owner must accept the request to enable chat.
+                </Text>
+            </View>
+          )}
         </SafeAreaView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -222,6 +239,7 @@ const styles = StyleSheet.create({
   headerInfo: { flex: 1, alignItems: 'center' },
   headerName: { fontSize: 18, fontWeight: '600', color: '#2c3e50' },
   headerSubtext: { fontSize: 12, color: '#7f8c8d', marginTop: 2 },
+  optionsButton: { padding: 5 },
   messagesList: { flex: 1 },
   messagesContainer: { paddingHorizontal: 10, paddingTop: 10 },
   emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingBottom: 50 },
@@ -231,6 +249,20 @@ const styles = StyleSheet.create({
   textInput: { flex: 1, backgroundColor: '#F1F2F6', borderRadius: 20, paddingHorizontal: 15, paddingVertical: Platform.OS === 'ios' ? 10 : 5, marginRight: 10, fontSize: 16, maxHeight: 100 },
   sendButton: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#957DAD', justifyContent: 'center', alignItems: 'center' },
   sendButtonDisabled: { backgroundColor: '#CED4DA' },
+  disabledInputContainer: {
+    padding: 15,
+    backgroundColor: '#F8F9FA',
+    borderTopWidth: 1,
+    borderTopColor: '#E9ECEF',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  disabledInputText: {
+    marginLeft: 8,
+    color: '#7f8c8d',
+    fontStyle: 'italic',
+  }
 });
 
 export default ChatScreen;
