@@ -7,13 +7,14 @@ import {
   ActivityIndicator,
   TouchableOpacity,
   RefreshControl,
+  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "../context/AuthContext";
 import api from "../utils/api";
-import ItemCard from "../components/ItemCard"; // We can reuse the ItemCard component
+import ItemCard from "../components/ItemCard";
 
 const MyListingsScreen = ({ navigation }) => {
   const { user } = useAuth();
@@ -45,6 +46,32 @@ const MyListingsScreen = ({ navigation }) => {
     fetchListings();
   };
 
+  const handleDelete = (itemId) => {
+    Alert.alert(
+      "Delete Item",
+      "Are you sure you want to delete this item? This action cannot be undone.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await api(`/items/${itemId}`, "DELETE");
+              // Optimistically remove the item from the list for a faster UI response
+              setListings(prevListings => prevListings.filter(item => item._id !== itemId));
+            } catch (error) {
+              console.error("Failed to delete item:", error);
+              Alert.alert("Error", "Could not delete item. Please try again.");
+              // If the delete fails, refresh the list from the server
+              fetchListings();
+            }
+          },
+        },
+      ]
+    );
+  };
+
   if (loading && !refreshing) {
     return (
       <SafeAreaView style={styles.container}>
@@ -68,7 +95,7 @@ const MyListingsScreen = ({ navigation }) => {
 
       <FlatList
         data={listings}
-        renderItem={({ item }) => <ItemCard item={item} />}
+        renderItem={({ item }) => <ItemCard item={item} onDelete={handleDelete} />}
         keyExtractor={(item) => item._id}
         contentContainerStyle={styles.listContent}
         refreshControl={

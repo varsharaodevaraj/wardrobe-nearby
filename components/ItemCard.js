@@ -6,34 +6,31 @@ import { useAuth } from '../context/AuthContext';
 import { useRental } from '../context/RentalContext';
 import StarRating from './StarRating';
 
-// We receive 'item' as a prop.
-const ItemCard = React.memo(({ item }) => {
+// We receive 'item' and an optional 'onDelete' function as props.
+const ItemCard = React.memo(({ item, onDelete }) => {
   const navigation = useNavigation();
   const { user } = useAuth();
   const { getRentalStatus } = useRental();
   const [imageError, setImageError] = useState(false);
-  
+
   // Check if current user is the owner
   const isOwner = user?.id === (typeof item.user === 'object' ? item.user._id : item.user);
   const ownerName = typeof item.user === 'object' ? item.user.name : 'Owner';
   const ownerStatus = typeof item.user === 'object' ? item.user.status : 'regular';
-  
+
   // Check if user has already requested this item
   const hasRequested = !isOwner && getRentalStatus(item._id);
 
   // --- HANDLE PRESS EVENT ---
   const handlePress = useCallback(() => {
-    // Navigate to the 'ItemDetail' screen and pass the 'item' object as a parameter.
     navigation.navigate('ItemDetail', { item: item });
   }, [navigation, item]);
 
   const handleImageError = useCallback((e) => {
     console.log('[ITEMCARD] Image load error for:', item.imageUrl, e.nativeEvent.error);
-    console.log('[ITEMCARD] Switching to fallback image');
     setImageError(true);
   }, [item.imageUrl]);
 
-  // Use featured image if available, fallback to main imageUrl
   const getFeaturedImageUrl = () => {
     if (item.images && item.images.length > 0) {
       const featuredIndex = item.featuredImageIndex || 0;
@@ -42,24 +39,25 @@ const ItemCard = React.memo(({ item }) => {
     return item.imageUrl;
   };
 
-  // Fallback image for when the main image fails to load
   const fallbackImageUrl = 'https://dummyimage.com/600x400/E0BBE4/4A235A&text=No+Image';
   const featuredImage = getFeaturedImageUrl();
-  
-  // Check if the URL is from placehold.co (which can be unreliable)
   const isUnreliableUrl = featuredImage && featuredImage.includes('placehold.co');
   const displayUrl = isUnreliableUrl || imageError ? fallbackImageUrl : featuredImage;
 
   return (
-    // --- ATTACH ONPRESS HANDLER ---
     <TouchableOpacity style={styles.cardContainer} onPress={handlePress}>
-      <Image 
-        source={{ uri: displayUrl }} 
+      <Image
+        source={{ uri: displayUrl }}
         style={styles.image}
-        onLoad={() => console.log('[ITEMCARD] Image loaded successfully:', displayUrl)}
         onError={handleImageError}
       />
       
+      {isOwner && onDelete && (
+        <TouchableOpacity style={styles.deleteButton} onPress={() => onDelete(item._id)}>
+          <Ionicons name="trash-outline" size={24} color="#E74C3C" />
+        </TouchableOpacity>
+      )}
+
       <View style={styles.infoContainer}>
         <View style={styles.headerContainer}>
           <Text style={styles.title}>{item.name}</Text>
@@ -69,8 +67,7 @@ const ItemCard = React.memo(({ item }) => {
             </Text>
           </View>
         </View>
-        
-        {/* Owner info with super lender status */}
+
         <View style={styles.ownerContainer}>
           <View style={styles.ownerInfo}>
             <Ionicons name="person-circle-outline" size={16} color="#7f8c8d" />
@@ -97,12 +94,11 @@ const ItemCard = React.memo(({ item }) => {
           </View>
         </View>
 
-        {/* Rating Display */}
         {item.totalReviews > 0 && (
           <View style={styles.ratingContainer}>
-            <StarRating 
-              rating={Math.round(item.averageRating)} 
-              size={14} 
+            <StarRating
+              rating={Math.round(item.averageRating)}
+              size={14}
               disabled={true}
               color="#FFD700"
             />
@@ -112,16 +108,15 @@ const ItemCard = React.memo(({ item }) => {
           </View>
         )}
 
-        {/* Availability Status */}
         <View style={styles.statusContainer}>
           <View style={[
             styles.availabilityBadge,
             item.isAvailable !== false ? styles.availableBadge : styles.unavailableBadge
           ]}>
-            <Ionicons 
-              name={item.isAvailable !== false ? "checkmark-circle" : "close-circle"} 
-              size={12} 
-              color={item.isAvailable !== false ? "#2E7D32" : "#D32F2F"} 
+            <Ionicons
+              name={item.isAvailable !== false ? "checkmark-circle" : "close-circle"}
+              size={12}
+              color={item.isAvailable !== false ? "#2E7D32" : "#D32F2F"}
             />
             <Text style={[
               styles.availabilityText,
@@ -131,7 +126,7 @@ const ItemCard = React.memo(({ item }) => {
             </Text>
           </View>
         </View>
-        
+
         <Text style={styles.category}>{item.category}</Text>
         <Text style={styles.price}>
           ₹{item.price_per_day}
@@ -158,6 +153,14 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.1,
         shadowRadius: 3.84,
         elevation: 5,
+    },
+    deleteButton: {
+      position: 'absolute',
+      top: 10,
+      right: 10,
+      backgroundColor: 'rgba(255, 255, 255, 0.8)',
+      padding: 8,
+      borderRadius: 20,
     },
     image: {
         width: '100%',

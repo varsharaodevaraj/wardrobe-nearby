@@ -56,7 +56,6 @@ router.get('/', auth, async (req, res) => {
   }
 });
 
-// --- NEW ROUTE ADDED HERE ---
 // @route   GET /api/items/featured
 // @desc    Get a few random items to be featured
 // @access  Private
@@ -71,9 +70,6 @@ router.get('/featured', auth, async (req, res) => {
   }
 });
 
-
-// (The rest of your item routes for getting user items, updating, etc. should go here)
-// For example:
 
 // @route   GET /api/items/user/:userId
 // @desc    Get all items for a specific user
@@ -106,6 +102,31 @@ router.put('/:id', auth, async (req, res) => {
         console.error('Error updating item:', error);
         res.status(500).send('Server Error');
     }
+});
+
+// @route   DELETE /api/items/:id
+// @desc    Delete an item
+// @access  Private
+router.delete('/:id', auth, async (req, res) => {
+  try {
+    const item = await Item.findById(req.params.id);
+
+    if (!item) {
+      return res.status(404).json({ message: 'Item not found' });
+    }
+
+    // Ensure the user owns the item
+    if (item.user.toString() !== req.user.id) {
+      return res.status(401).json({ message: 'User not authorized' });
+    }
+
+    await Item.findByIdAndDelete(req.params.id);
+
+    res.json({ message: 'Item removed successfully' });
+  } catch (error) {
+    console.error('Error deleting item:', error);
+    res.status(500).send('Server Error');
+  }
 });
 
 module.exports = router;
