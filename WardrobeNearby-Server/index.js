@@ -121,10 +121,7 @@ io.on('connection', (socket) => {
 
 app.set('io', io);
 
-server.listen(PORT, '0.0.0.0', () => {
-  console.log(`Server is running successfully!`);
-  console.log(`Mobile access: http://${localIP}:${PORT}`);
-  console.log(`Local access: http://localhost:${PORT}`);
-  console.log(`Network access: http://0.0.0.0:${PORT}`);
+server.listen(PORT, () => {
+  console.log(`Server is running on port ${PORT}`);
   console.log(`WebSocket server ready for real-time chat!`);
 });
