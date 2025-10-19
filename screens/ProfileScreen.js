@@ -16,6 +16,7 @@ import { useCommunity } from "../context/CommunityContext";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { Picker } from "@react-native-picker/picker";
+import StarRating from '../components/StarRating';
 
 const ProfileScreen = () => {
   const { user, logout } = useAuth();
@@ -105,6 +106,21 @@ const ProfileScreen = () => {
         </View>
 
         <View style={styles.section}>
+          <TouchableOpacity
+            style={styles.sectionItem}
+            onPress={() => navigation.navigate("UserReviews", { userId: user.id })}
+          >
+            <Ionicons name="star-outline" size={22} color="#4A235A" />
+            <Text style={styles.sectionText}>My Reviews</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <StarRating rating={user.averageRating} size={16} disabled />
+              <Text style={{ marginLeft: 5, color: '#7f8c8d' }}>({user.totalRatings})</Text>
+              <Ionicons name="chevron-forward" size={22} color="#CED4DA" style={{ marginLeft: 10 }} />
+            </View>
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.section}>
           <Text style={styles.sectionTitle}>My Community</Text>
           <View style={styles.communityContainer}>
             {userCommunity ? (
@@ -145,6 +161,14 @@ const ProfileScreen = () => {
           >
             <Ionicons name="pricetags-outline" size={22} color="#4A235A" />
             <Text style={styles.sectionText}>My Listings</Text>
+            <Ionicons name="chevron-forward" size={22} color="#CED4DA" />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.sectionItem}
+            onPress={() => navigation.navigate("MyRentals")}
+          >
+            <Ionicons name="list-outline" size={22} color="#4A235A" />
+            <Text style={styles.sectionText}>My Rentals</Text>
             <Ionicons name="chevron-forward" size={22} color="#CED4DA" />
           </TouchableOpacity>
           <TouchableOpacity

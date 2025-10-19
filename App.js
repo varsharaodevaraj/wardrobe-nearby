@@ -8,7 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { WishlistProvider } from "./context/WishlistContext";
-import { RentalProvider } from "./context/RentalContext";
+import { RentalProvider, useRental } from "./context/RentalContext";
 import { ChatProvider, useChatContext } from "./context/ChatContext";
 import { NotificationProvider } from "./context/NotificationContext";
 import { CommunityProvider } from "./context/CommunityContext";
@@ -31,6 +31,9 @@ import WishlistScreen from "./screens/WishlistScreen";
 import MyListingsScreen from "./screens/MyListingsScreen";
 import EditItemScreen from "./screens/EditItemScreen";
 import PostUserReviewScreen from "./screens/PostUserReviewScreen";
+import AllReviewsScreen from "./screens/AllReviewsScreen";
+import UserReviewsScreen from "./screens/UserReviewsScreen";
+import UserProfileScreen from "./screens/UserProfileScreen";
 
 
 const AuthStack = createNativeStackNavigator();
@@ -48,6 +51,9 @@ function MainFlow() {
       <MainStack.Screen name="Wishlist" component={WishlistScreen} />
       <MainStack.Screen name="MyListings" component={MyListingsScreen} />
       <MainStack.Screen name="PostUserReview" component={PostUserReviewScreen} />
+      <MainStack.Screen name="AllReviews" component={AllReviewsScreen} />
+      <MainStack.Screen name="UserReviews" component={UserReviewsScreen} />
+      <MainStack.Screen name="UserProfile" component={UserProfileScreen} />
     </MainStack.Navigator>
   );
 }
@@ -55,6 +61,8 @@ function MainFlow() {
 function MainTabs() {
   const insets = useSafeAreaInsets();
   const { totalUnreadCount } = useChatContext();
+  const { incomingRequestsCount } = useRental();
+
   return (
     <Tab.Navigator
       screenOptions={{
@@ -83,10 +91,18 @@ function MainTabs() {
         component={AddItemScreen}
         options={{ tabBarLabel: 'List Item', tabBarIcon: ({ color, size }) => <Ionicons name="add-circle-outline" size={size} color={color} /> }}
       />
-       <Tab.Screen
+      <Tab.Screen
         name="MyRentals"
         component={MyRentalsScreen}
-        options={{ tabBarLabel: 'My Rentals', tabBarIcon: ({ color, size }) => <Ionicons name="list-outline" size={size} color={color} /> }}
+        options={{
+          tabBarLabel: 'My Rentals',
+          tabBarIcon: ({ color, size }) => (
+            <View>
+              <Ionicons name="list-outline" size={size} color={color} />
+              <MessageBadge count={incomingRequestsCount} />
+            </View>
+          ),
+        }}
       />
       <Tab.Screen
         name="Messages"

@@ -1,17 +1,21 @@
-import React, { useState } from 'react';
-import { 
-  View, Text, StyleSheet, TouchableOpacity, 
-  Alert, Image 
-} from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import StarRating from './StarRating';
-import { useAuth } from '../context/AuthContext';
+import React, { useState } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  Alert,
+  Image,
+} from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import StarRating from "./StarRating";
+import { useAuth } from "../context/AuthContext";
 
-const ReviewCard = ({ 
-  review, 
-  onEdit = null, 
-  onDelete = null, 
-  onMarkHelpful = null 
+const ReviewCard = ({
+  review,
+  onEdit = null,
+  onDelete = null,
+  onMarkHelpful = null,
 }) => {
   const { user } = useAuth();
   const [helpfulCount, setHelpfulCount] = useState(review.helpfulCount || 0);
@@ -26,11 +30,11 @@ const ReviewCard = ({
     const now = new Date();
     const diffTime = Math.abs(now - date);
     const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-    
+
     if (diffDays === 0) {
-      return 'Today';
+      return "Today";
     } else if (diffDays === 1) {
-      return 'Yesterday';
+      return "Yesterday";
     } else if (diffDays < 7) {
       return `${diffDays} days ago`;
     } else {
@@ -40,15 +44,15 @@ const ReviewCard = ({
 
   const handleMarkHelpful = async () => {
     if (isMarkedHelpful || isMyReview) return;
-    
+
     try {
       if (onMarkHelpful) {
         await onMarkHelpful(review._id);
-        setHelpfulCount(prev => prev + 1);
+        setHelpfulCount((prev) => prev + 1);
         setIsMarkedHelpful(true);
       }
     } catch (error) {
-      console.error('Error marking review as helpful:', error);
+      console.error("Error marking review as helpful:", error);
     }
   };
 
@@ -60,15 +64,15 @@ const ReviewCard = ({
 
   const handleDelete = () => {
     Alert.alert(
-      'Delete Review',
-      'Are you sure you want to delete this review?',
+      "Delete Review",
+      "Are you sure you want to delete this review?",
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: "Cancel", style: "cancel" },
         {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: () => onDelete && onDelete(review._id)
-        }
+          text: "Delete",
+          style: "destructive",
+          onPress: () => onDelete && onDelete(review._id),
+        },
       ]
     );
   };
@@ -80,8 +84,8 @@ const ReviewCard = ({
         <View style={styles.userInfo}>
           <View style={styles.avatar}>
             {review.reviewer.profileImage ? (
-              <Image 
-                source={{ uri: review.reviewer.profileImage }} 
+              <Image
+                source={{ uri: review.reviewer.profileImage }}
                 style={styles.avatarImage}
               />
             ) : (
@@ -90,11 +94,7 @@ const ReviewCard = ({
           </View>
           <View style={styles.userDetails}>
             <Text style={styles.userName}>{review.reviewer.name}</Text>
-            <StarRating 
-              rating={review.rating} 
-              size={16} 
-              disabled={true}
-            />
+            <StarRating rating={review.rating} size={16} disabled={true} />
           </View>
         </View>
         <Text style={styles.date}>{formatDate(review.createdAt)}</Text>
@@ -108,23 +108,25 @@ const ReviewCard = ({
         <View style={styles.leftActions}>
           {/* Helpful button */}
           {!isMyReview && (
-            <TouchableOpacity 
+            <TouchableOpacity
               style={[
-                styles.helpfulButton, 
-                isMarkedHelpful && styles.helpfulButtonActive
+                styles.helpfulButton,
+                isMarkedHelpful && styles.helpfulButtonActive,
               ]}
               onPress={handleMarkHelpful}
               disabled={isMarkedHelpful}
             >
-              <Ionicons 
-                name={isMarkedHelpful ? "thumbs-up" : "thumbs-up-outline"} 
-                size={16} 
-                color={isMarkedHelpful ? "#957DAD" : "#7f8c8d"} 
+              <Ionicons
+                name={isMarkedHelpful ? "thumbs-up" : "thumbs-up-outline"}
+                size={16}
+                color={isMarkedHelpful ? "#957DAD" : "#7f8c8d"}
               />
-              <Text style={[
-                styles.helpfulText,
-                isMarkedHelpful && styles.helpfulTextActive
-              ]}>
+              <Text
+                style={[
+                  styles.helpfulText,
+                  isMarkedHelpful && styles.helpfulTextActive,
+                ]}
+              >
                 Helpful {helpfulCount > 0 && `(${helpfulCount})`}
               </Text>
             </TouchableOpacity>
@@ -135,15 +137,23 @@ const ReviewCard = ({
         {isMyReview && (
           <View style={styles.rightActions}>
             {onEdit && (
-              <TouchableOpacity style={styles.actionButton} onPress={handleEdit}>
+              <TouchableOpacity
+                style={styles.actionButton}
+                onPress={handleEdit}
+              >
                 <Ionicons name="pencil" size={16} color="#957DAD" />
                 <Text style={styles.actionText}>Edit</Text>
               </TouchableOpacity>
             )}
             {onDelete && (
-              <TouchableOpacity style={styles.actionButton} onPress={handleDelete}>
+              <TouchableOpacity
+                style={styles.actionButton}
+                onPress={handleDelete}
+              >
                 <Ionicons name="trash" size={16} color="#e74c3c" />
-                <Text style={[styles.actionText, { color: '#e74c3c' }]}>Delete</Text>
+                <Text style={[styles.actionText, { color: "#e74c3c" }]}>
+                  Delete
+                </Text>
               </TouchableOpacity>
             )}
           </View>
@@ -160,11 +170,11 @@ const ReviewCard = ({
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: 'white',
+    backgroundColor: "white",
     borderRadius: 12,
     padding: 16,
     marginVertical: 6,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: {
       width: 0,
       height: 2,
@@ -174,14 +184,14 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
     marginBottom: 12,
   },
   userInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     flex: 1,
   },
   avatar: {
@@ -197,69 +207,69 @@ const styles = StyleSheet.create({
   },
   userName: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#2c3e50',
+    fontWeight: "600",
+    color: "#2c3e50",
     marginBottom: 4,
   },
   date: {
     fontSize: 12,
-    color: '#7f8c8d',
+    color: "#7f8c8d",
   },
   comment: {
     fontSize: 14,
-    color: '#34495e',
+    color: "#34495e",
     lineHeight: 20,
     marginBottom: 12,
   },
   actions: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
   },
   leftActions: {
     flex: 1,
   },
   rightActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
   },
   helpfulButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingVertical: 6,
     paddingHorizontal: 12,
     borderRadius: 20,
-    backgroundColor: '#f8f9fa',
-    alignSelf: 'flex-start',
+    backgroundColor: "#f8f9fa",
+    alignSelf: "flex-start",
   },
   helpfulButtonActive: {
-    backgroundColor: '#E0BBE4',
+    backgroundColor: "#E0BBE4",
   },
   helpfulText: {
     fontSize: 12,
-    color: '#7f8c8d',
+    color: "#7f8c8d",
     marginLeft: 4,
   },
   helpfulTextActive: {
-    color: '#4A235A',
+    color: "#4A235A",
   },
   actionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingVertical: 6,
     paddingHorizontal: 8,
     marginLeft: 8,
   },
   actionText: {
     fontSize: 12,
-    color: '#957DAD',
+    color: "#957DAD",
     marginLeft: 4,
   },
   updatedText: {
     fontSize: 10,
-    color: '#95a5a6',
-    fontStyle: 'italic',
-    textAlign: 'right',
+    color: "#95a5a6",
+    fontStyle: "italic",
+    textAlign: "right",
     marginTop: 4,
   },
 });

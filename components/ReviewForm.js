@@ -1,22 +1,29 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  View, Text, StyleSheet, TextInput, 
-  TouchableOpacity, Alert, ActivityIndicator,
-  KeyboardAvoidingView, Platform, ScrollView 
-} from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import StarRating from './StarRating';
-import api from '../utils/api';
+import React, { useState, useEffect } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  TextInput,
+  TouchableOpacity,
+  Alert,
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+} from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import StarRating from "./StarRating";
+import api from "../utils/api";
 
-const ReviewForm = ({ 
-  itemId, 
-  existingReview = null, 
-  onSuccess = null, 
+const ReviewForm = ({
+  itemId,
+  existingReview = null,
+  onSuccess = null,
   onCancel = null,
-  visible = true 
+  visible = true,
 }) => {
   const [rating, setRating] = useState(existingReview?.rating || 0);
-  const [comment, setComment] = useState(existingReview?.comment || '');
+  const [comment, setComment] = useState(existingReview?.comment || "");
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
 
@@ -27,7 +34,7 @@ const ReviewForm = ({
       setComment(existingReview.comment);
     } else {
       setRating(0);
-      setComment('');
+      setComment("");
     }
     setErrors({});
   }, [existingReview]);
@@ -36,13 +43,13 @@ const ReviewForm = ({
     const newErrors = {};
 
     if (rating === 0) {
-      newErrors.rating = 'Please select a rating';
+      newErrors.rating = "Please select a rating";
     }
 
     if (!comment.trim()) {
-      newErrors.comment = 'Please write a comment';
+      newErrors.comment = "Please write a comment";
     } else if (comment.trim().length < 10) {
-      newErrors.comment = 'Comment must be at least 10 characters long';
+      newErrors.comment = "Comment must be at least 10 characters long";
     }
 
     setErrors(newErrors);
@@ -55,19 +62,19 @@ const ReviewForm = ({
     setLoading(true);
     try {
       let response;
-      
+
       if (existingReview) {
         // Update existing review
-        response = await api(`/reviews/${existingReview._id}`, 'PUT', {
+        response = await api(`/reviews/${existingReview._id}`, "PUT", {
           rating,
-          comment: comment.trim()
+          comment: comment.trim(),
         });
       } else {
         // Create new review
-        response = await api('/reviews', 'POST', {
+        response = await api("/reviews", "POST", {
           itemId,
           rating,
-          comment: comment.trim()
+          comment: comment.trim(),
         });
       }
 
@@ -78,20 +85,21 @@ const ReviewForm = ({
       // Reset form if creating new review
       if (!existingReview) {
         setRating(0);
-        setComment('');
+        setComment("");
       }
 
       Alert.alert(
-        'Success',
-        existingReview ? 'Review updated successfully!' : 'Review submitted successfully!',
-        [{ text: 'OK' }]
+        "Success",
+        existingReview
+          ? "Review updated successfully!"
+          : "Review submitted successfully!",
+        [{ text: "OK" }]
       );
-
     } catch (error) {
-      console.error('Error submitting review:', error);
+      console.error("Error submitting review:", error);
       Alert.alert(
-        'Error',
-        error.message || 'Failed to submit review. Please try again.'
+        "Error",
+        error.message || "Failed to submit review. Please try again."
       );
     } finally {
       setLoading(false);
@@ -104,7 +112,7 @@ const ReviewForm = ({
     } else {
       // Reset form
       setRating(existingReview?.rating || 0);
-      setComment(existingReview?.comment || '');
+      setComment(existingReview?.comment || "");
       setErrors({});
     }
   };
@@ -112,8 +120,8 @@ const ReviewForm = ({
   if (!visible) return null;
 
   return (
-    <KeyboardAvoidingView 
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    <KeyboardAvoidingView
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
       style={styles.container}
     >
       <ScrollView showsVerticalScrollIndicator={false}>
@@ -121,10 +129,13 @@ const ReviewForm = ({
           {/* Header */}
           <View style={styles.header}>
             <Text style={styles.title}>
-              {existingReview ? 'Edit Review' : 'Write a Review'}
+              {existingReview ? "Edit Review" : "Write a Review"}
             </Text>
             {onCancel && (
-              <TouchableOpacity onPress={handleCancel} style={styles.closeButton}>
+              <TouchableOpacity
+                onPress={handleCancel}
+                style={styles.closeButton}
+              >
                 <Ionicons name="close" size={24} color="#7f8c8d" />
               </TouchableOpacity>
             )}
@@ -134,7 +145,7 @@ const ReviewForm = ({
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Rating *</Text>
             <View style={styles.ratingContainer}>
-              <StarRating 
+              <StarRating
                 rating={rating}
                 size={32}
                 onRatingChange={setRating}
@@ -142,7 +153,7 @@ const ReviewForm = ({
                 emptyColor="#DDD"
               />
               <Text style={styles.ratingText}>
-                {rating > 0 ? `${rating} out of 5 stars` : 'Tap to rate'}
+                {rating > 0 ? `${rating} out of 5 stars` : "Tap to rate"}
               </Text>
             </View>
             {errors.rating && (
@@ -154,17 +165,14 @@ const ReviewForm = ({
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Your Review *</Text>
             <TextInput
-              style={[
-                styles.commentInput,
-                errors.comment && styles.errorInput
-              ]}
+              style={[styles.commentInput, errors.comment && styles.errorInput]}
               placeholder="Share your experience with this item..."
               placeholderTextColor="#A9A9A9"
               value={comment}
               onChangeText={(text) => {
                 setComment(text);
                 if (errors.comment) {
-                  setErrors(prev => ({ ...prev, comment: null }));
+                  setErrors((prev) => ({ ...prev, comment: null }));
                 }
               }}
               multiline
@@ -186,28 +194,27 @@ const ReviewForm = ({
           <View style={styles.guidelines}>
             <Text style={styles.guidelinesTitle}>Review Guidelines:</Text>
             <Text style={styles.guidelinesText}>
-              • Be honest and constructive{'\n'}
-              • Focus on the item's condition and quality{'\n'}
-              • Avoid personal information{'\n'}
-              • Be respectful to other users
+              • Be honest and constructive{"\n"}• Focus on the item's condition
+              and quality{"\n"}• Avoid personal information{"\n"}• Be respectful
+              to other users
             </Text>
           </View>
 
           {/* Action Buttons */}
           <View style={styles.actions}>
-            <TouchableOpacity 
-              style={styles.cancelButton} 
+            <TouchableOpacity
+              style={styles.cancelButton}
               onPress={handleCancel}
               disabled={loading}
             >
               <Text style={styles.cancelButtonText}>Cancel</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity 
+            <TouchableOpacity
               style={[
                 styles.submitButton,
-                loading && styles.submitButtonDisabled
-              ]} 
+                loading && styles.submitButtonDisabled,
+              ]}
               onPress={handleSubmit}
               disabled={loading}
             >
@@ -215,7 +222,7 @@ const ReviewForm = ({
                 <ActivityIndicator color="white" size="small" />
               ) : (
                 <Text style={styles.submitButtonText}>
-                  {existingReview ? 'Update Review' : 'Submit Review'}
+                  {existingReview ? "Update Review" : "Submit Review"}
                 </Text>
               )}
             </TouchableOpacity>
@@ -231,11 +238,11 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   formContainer: {
-    backgroundColor: 'white',
+    backgroundColor: "white",
     borderRadius: 12,
     padding: 20,
     margin: 16,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: {
       width: 0,
       height: 4,
@@ -245,15 +252,15 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: 20,
   },
   title: {
     fontSize: 20,
-    fontWeight: 'bold',
-    color: '#2c3e50',
+    fontWeight: "bold",
+    color: "#2c3e50",
   },
   closeButton: {
     padding: 4,
@@ -263,69 +270,69 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#34495e',
+    fontWeight: "600",
+    color: "#34495e",
     marginBottom: 8,
   },
   ratingContainer: {
-    alignItems: 'flex-start',
+    alignItems: "flex-start",
   },
   ratingText: {
     fontSize: 14,
-    color: '#7f8c8d',
+    color: "#7f8c8d",
     marginTop: 8,
   },
   commentInput: {
     borderWidth: 1,
-    borderColor: '#E0E0E0',
+    borderColor: "#E0E0E0",
     borderRadius: 8,
     padding: 12,
     fontSize: 14,
-    color: '#2c3e50',
-    backgroundColor: '#f8f9fa',
+    color: "#2c3e50",
+    backgroundColor: "#f8f9fa",
     minHeight: 100,
   },
   errorInput: {
-    borderColor: '#e74c3c',
+    borderColor: "#e74c3c",
   },
   commentFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginTop: 4,
   },
   charCount: {
     fontSize: 12,
-    color: '#95a5a6',
-    textAlign: 'right',
+    color: "#95a5a6",
+    textAlign: "right",
   },
   errorText: {
     fontSize: 12,
-    color: '#e74c3c',
+    color: "#e74c3c",
     marginTop: 4,
   },
   guidelines: {
-    backgroundColor: '#f8f9fa',
+    backgroundColor: "#f8f9fa",
     borderRadius: 8,
     padding: 12,
     marginBottom: 20,
     borderLeftWidth: 3,
-    borderLeftColor: '#957DAD',
+    borderLeftColor: "#957DAD",
   },
   guidelinesTitle: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#34495e',
+    fontWeight: "600",
+    color: "#34495e",
     marginBottom: 6,
   },
   guidelinesText: {
     fontSize: 12,
-    color: '#7f8c8d',
+    color: "#7f8c8d",
     lineHeight: 16,
   },
   actions: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    justifyContent: "space-between",
     gap: 12,
   },
   cancelButton: {
@@ -333,28 +340,28 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#95a5a6',
-    alignItems: 'center',
+    borderColor: "#95a5a6",
+    alignItems: "center",
   },
   cancelButtonText: {
-    color: '#7f8c8d',
+    color: "#7f8c8d",
     fontSize: 16,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   submitButton: {
     flex: 1,
-    backgroundColor: '#957DAD',
+    backgroundColor: "#957DAD",
     paddingVertical: 12,
     borderRadius: 8,
-    alignItems: 'center',
+    alignItems: "center",
   },
   submitButtonDisabled: {
-    backgroundColor: '#CED4DA',
+    backgroundColor: "#CED4DA",
   },
   submitButtonText: {
-    color: 'white',
+    color: "white",
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
   },
 });
 

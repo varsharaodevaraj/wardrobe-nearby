@@ -244,42 +244,65 @@ router.delete('/:reviewId', auth, async (req, res) => {
   }
 });
 
-// @route   GET /api/reviews/user/:userId
-// @desc    Get all reviews by a specific user
+// @route   GET /api/reviews/user/:userId/about
+// @desc    Get all reviews ABOUT a specific user
 // @access  Private
-router.get('/user/:userId', auth, async (req, res) => {
-  try {
-    const { userId } = req.params;
-    const { page = 1, limit = 10 } = req.query;
-
-    const reviews = await Review.find({ 
-      reviewer: userId, 
-      status: 'active' 
-    })
-      .populate('item', 'name imageUrl')
-      .populate('itemOwner', 'name')
-      .sort({ createdAt: -1 })
-      .limit(limit * 1)
-      .skip((page - 1) * limit);
-
-    const totalReviews = await Review.countDocuments({ 
-      reviewer: userId, 
-      status: 'active' 
-    });
-
-    res.json({
-      reviews,
-      pagination: {
-        currentPage: page,
-        totalReviews,
-        hasMore: reviews.length === parseInt(limit)
-      }
-    });
-  } catch (error) {
-    console.error('Error fetching user reviews:', error);
-    res.status(500).json({ message: 'Server error while fetching user reviews' });
-  }
+router.get('/user/:userId/about', auth, async (req, res) => {
+    try {
+        const { userId } = req.params;
+        const reviews = await UserReview.find({ reviewee: userId })
+            .populate('reviewer', 'name profileImage')
+            .sort({ createdAt: -1 });
+        res.json(reviews);
+    } catch (error) {
+        console.error('Error fetching reviews about user:', error);
+        res.status(500).json({ message: 'Server error' });
+    }
 });
+
+// @route   GET /api/reviews/user/:userId/written
+// @desc    Get all reviews WRITTEN BY a specific user (both item and user reviews)
+// @access  Private
+router.get('/user/:userId/written', auth, async (req, res) => {
+    try {
+        const { userId } = req.params;
+
+        // Fetch item reviews written by the user
+        const itemReviews = await Review.find({ reviewer: userId, status: 'active' })
+            .populate('reviewer', 'name profileImage')
+            .populate('item', 'name')
+            .sort({ createdAt: -1 });
+
+        // Fetch user reviews written by the user
+        const userReviews = await UserReview.find({ reviewer: userId })
+            .populate('reviewer', 'name profileImage')
+            .populate('reviewee', 'name')
+            .sort({ createdAt: -1 });
+
+        // Combine and format the reviews for consistent display
+        const combined = [
+            ...itemReviews.map(r => ({
+                ...r.toObject(),
+                _id: `item_${r._id}`, // Ensure unique key
+                comment: `(Review for item: ${r.item.name}) ${r.comment}`
+            })),
+            ...userReviews.map(r => ({
+                ...r.toObject(),
+                _id: `user_${r._id}`, // Ensure unique key
+                comment: `(Review for user: ${r.reviewee.name}) ${r.comment}`
+            }))
+        ];
+
+        // Sort combined reviews by date
+        combined.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+        res.json(combined);
+    } catch (error) {
+        console.error('Error fetching reviews written by user:', error);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
 
 // @route   POST /api/reviews/:reviewId/helpful
 // @desc    Mark a review as helpful
