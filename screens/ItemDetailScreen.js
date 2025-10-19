@@ -16,12 +16,10 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { Calendar } from "react-native-calendars";
-import api from "../utils/api";
 import { useAuth } from "../context/AuthContext";
 import { useWishlist } from "../context/WishlistContext";
 import { useRental } from "../context/RentalContext";
 import ReviewsList from "../components/ReviewsList";
-import ReviewForm from "../components/ReviewForm";
 import StyledTextInput from "../components/StyledTextInput";
 
 const { width } = Dimensions.get("window");
