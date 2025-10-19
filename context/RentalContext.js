@@ -8,6 +8,7 @@ export const RentalProvider = ({ children }) => {
   const { user } = useAuth();
   const [rentalStates, setRentalStates] = useState(new Map());
   const [loading, setLoading] = useState(false);
+  const [incomingRequestsCount, setIncomingRequestsCount] = useState(0);
 
   const checkRentalStatus = useCallback(async (itemId) => {
     if (!user) return false;
@@ -84,7 +85,10 @@ export const RentalProvider = ({ children }) => {
     if (!user) return;
     try {
       setLoading(true);
-      const requests = await api('/rentals/outgoing');
+      const [requests, incomingRequests] = await Promise.all([
+        api('/rentals/outgoing'),
+        api('/rentals/incoming'),
+      ]);
       const newStates = new Map();
       
       requests.forEach(request => {
@@ -94,6 +98,7 @@ export const RentalProvider = ({ children }) => {
       });
       
       setRentalStates(newStates);
+      setIncomingRequestsCount(incomingRequests.length);
     } catch (error) {
       console.error('[RENTAL_CONTEXT] Error loading rental statuses:', error);
     } finally {
@@ -106,6 +111,7 @@ export const RentalProvider = ({ children }) => {
       loadAllRentalStatuses();
     } else {
       setRentalStates(new Map());
+      setIncomingRequestsCount(0);
     }
   }, [user, loadAllRentalStatuses]);
 
@@ -116,6 +122,7 @@ export const RentalProvider = ({ children }) => {
     checkRentalStatus,
     clearRentalStatus,
     loadAllRentalStatuses,
+    incomingRequestsCount
   };
 
   return (

@@ -89,6 +89,18 @@ const ItemDetailScreen = ({ route, navigation }) => {
     }
   };
 
+  const handleAskDetails = () => {
+    if (isOwner) {
+      Alert.alert("Info", "This is your own item.");
+      return;
+    }
+    navigation.navigate('Chat', {
+      participantId: itemOwnerId,
+      itemId: itemData._id,
+      participantName: typeof itemData.user === 'object' ? itemData.user.name : 'Owner',
+    });
+  };
+
   const handleDayPress = (day) => {
     if (!startDate || (startDate && endDate)) {
       setStartDate(day.dateString);
@@ -269,14 +281,12 @@ const ItemDetailScreen = ({ route, navigation }) => {
                 color={isInWishlist(itemData._id) ? "#E74C3C" : "#2c3e50"}
               />
             </TouchableOpacity>
-            <View style={styles.priceSection}>
-              <Text style={styles.price}>₹{itemData.price_per_day}</Text>
-              <Text style={styles.priceLabel}>
-                {itemData.listingType === "sell"
-                  ? ""
-                  : `/${itemData.rentalDuration || "day"}`}
-              </Text>
-            </View>
+            <TouchableOpacity
+              style={styles.askButton}
+              onPress={handleAskDetails}
+            >
+              <Text style={styles.askButtonText}>Ask Details</Text>
+            </TouchableOpacity>
             <TouchableOpacity
               style={[
                 getRentalStatus(itemData._id)
@@ -431,6 +441,18 @@ const styles = StyleSheet.create({
   },
   ownerFooter: { padding: 20, borderTopWidth: 1, borderTopColor: "#E9ECEF" },
   wishlistButton: { padding: 10 },
+  askButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 30,
+    borderWidth: 1,
+    borderColor: '#957DAD',
+  },
+  askButtonText: {
+    color: '#957DAD',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
   priceSection: { flexDirection: "row", alignItems: "baseline" },
   price: { fontSize: 24, fontWeight: "bold", color: "#2c3e50" },
   priceLabel: { fontSize: 14, color: "#7f8c8d", marginLeft: 2 },

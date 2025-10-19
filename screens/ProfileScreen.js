@@ -149,14 +149,6 @@ const ProfileScreen = () => {
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.sectionItem}
-            onPress={() => navigation.navigate("MyRentals")}
-          >
-            <Ionicons name="list-outline" size={22} color="#4A235A" />
-            <Text style={styles.sectionText}>My Rentals</Text>
-            <Ionicons name="chevron-forward" size={22} color="#CED4DA" />
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.sectionItem}
             onPress={() => navigation.navigate("Wishlist")}
           >
             <Ionicons name="heart-outline" size={22} color="#4A235A" />

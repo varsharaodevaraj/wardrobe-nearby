@@ -3,6 +3,7 @@ const router = express.Router();
 const auth = require('../middleware/auth');
 const Item = require('../models/Item');
 const User = require('../models/User');
+const mongoose = require('mongoose'); // Import mongoose
 
 // @route   POST /api/items
 // @desc    Add new item
@@ -34,6 +35,9 @@ router.get('/', auth, async (req, res) => {
     let query = {};
     const currentUser = await User.findById(req.user.id);
 
+    // Exclude items owned by the current user
+    query.user = { $ne: req.user.id };
+
     // If community filter is active, only show items from that community
     if (community === 'true' && currentUser.community) {
       query.community = currentUser.community;
@@ -61,8 +65,11 @@ router.get('/', auth, async (req, res) => {
 // @access  Private
 router.get('/featured', auth, async (req, res) => {
   try {
-    // Fetch 5 random items from the database
-    const featuredItems = await Item.aggregate([{ $sample: { size: 5 } }]);
+    // Fetch 5 random items from the database, excluding the user's own items
+    const featuredItems = await Item.aggregate([
+      { $match: { user: { $ne: new mongoose.Types.ObjectId(req.user.id) } } },
+      { $sample: { size: 5 } }
+    ]);
     res.json(featuredItems);
   } catch (error) {
     console.error('Error fetching featured items:', error);

@@ -45,7 +45,6 @@ function MainFlow() {
       <MainStack.Screen name="EditProfile" component={EditProfileScreen} />
       <MainStack.Screen name="EditItem" component={EditItemScreen} />
       <MainStack.Screen name="Chat" component={ChatScreen} />
-      <MainStack.Screen name="MyRentals" component={MyRentalsScreen} />
       <MainStack.Screen name="Wishlist" component={WishlistScreen} />
       <MainStack.Screen name="MyListings" component={MyListingsScreen} />
       <MainStack.Screen name="PostUserReview" component={PostUserReviewScreen} />
@@ -83,6 +82,11 @@ function MainTabs() {
         name="AddItem"
         component={AddItemScreen}
         options={{ tabBarLabel: 'List Item', tabBarIcon: ({ color, size }) => <Ionicons name="add-circle-outline" size={size} color={color} /> }}
+      />
+       <Tab.Screen
+        name="MyRentals"
+        component={MyRentalsScreen}
+        options={{ tabBarLabel: 'My Rentals', tabBarIcon: ({ color, size }) => <Ionicons name="list-outline" size={size} color={color} /> }}
       />
       <Tab.Screen
         name="Messages"
