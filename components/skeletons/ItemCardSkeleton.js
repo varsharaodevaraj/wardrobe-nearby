@@ -26,6 +26,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     overflow: 'hidden',
     marginBottom: 20,
+    marginHorizontal: 20,
     borderWidth: 1,
     borderColor: '#F0F0F0',
   },

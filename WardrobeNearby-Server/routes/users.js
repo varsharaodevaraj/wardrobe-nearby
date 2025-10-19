@@ -47,21 +47,40 @@ router.post('/push-token', auth, async (req, res) => {
 router.put('/community', auth, async (req, res) => {
   try {
     const { community } = req.body;
+    // Ensure community is not null or empty, as it's a required field
+    if (!community) {
+      return res.status(400).json({ message: 'Community is a required field.' });
+    }
+
     const user = await User.findById(req.user.id);
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    user.community = community || null;
+    user.community = community;
     await user.save();
+    
+    // Also update the community for all of the user's items
     await Item.updateMany({ user: req.user.id }, { $set: { community: user.community } });
 
-    const updatedUser = { id: user.id, name: user.name, email: user.email, community: user.community };
+    // Return the full user object to maintain client-side state consistency
+    const updatedUser = { 
+      id: user.id, 
+      name: user.name, 
+      email: user.email, 
+      community: user.community,
+      bio: user.bio,
+      profileImage: user.profileImage,
+      averageRating: user.averageRating,
+      totalRatings: user.totalRatings
+    };
     res.json({ message: 'Community updated successfully', user: updatedUser });
   } catch (error) {
+    console.error('Error updating community:', error);
     res.status(500).json({ message: 'Server error while updating community' });
   }
 });
+
 
 // @route   GET /api/users/profile/:userId
 // @desc    Get user profile by ID

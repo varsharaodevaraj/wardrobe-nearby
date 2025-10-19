@@ -13,11 +13,11 @@ const validateEmail = (email) => {
 };
 
 router.post('/signup', async (req, res) => {
-  const { name, email, password } = req.body;
+  const { name, email, password, community } = req.body;
 
   try {
-    if (!name || !email || !password) {
-      return res.status(400).json({ message: 'All fields are required' });
+    if (!name || !email || !password || !community) {
+      return res.status(400).json({ message: 'All fields are required, including community.' });
     }
 
     const emailValidation = validateEmail(email);
@@ -34,6 +34,7 @@ router.post('/signup', async (req, res) => {
       name: name.trim(), 
       email: emailValidation.email, 
       password,
+      community,
     });
 
     const salt = await bcrypt.genSalt(10);

@@ -31,11 +31,12 @@ const api = async (endpoint, method = 'GET', body = null) => {
         throw new Error(`Request failed with status ${response.status}`);
       }
 
+      // Handle token expiration gracefully
       if (response.status === 401 && errorData.message &&
           (errorData.message.includes('Token is not valid') ||
            errorData.message.includes('No token, authorization denied'))) {
 
-        console.error('[AUTH] Invalid token detected, logging out user');
+        console.error('[AUTH] Invalid token detected, logging out user.');
 
         if (globalLogout) {
           // Use a short timeout to ensure the logout call happens outside the current render cycle
@@ -44,7 +45,8 @@ const api = async (endpoint, method = 'GET', body = null) => {
           }, 100);
         }
         
-        throw new Error('Session expired. Please log in again.');
+        // Return null instead of throwing an error. The logout function will handle the UI change.
+        return null;
       }
 
       throw new Error(errorData.message || `Request failed with status ${response.status}`);

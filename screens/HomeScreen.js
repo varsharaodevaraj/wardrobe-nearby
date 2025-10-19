@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl, TextInput, Switch, ScrollView, Image } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl, TextInput, Switch, ScrollView, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
 import { useCommunity } from '../context/CommunityContext';
 import ItemCard from '../components/ItemCard';
+import ItemCardSkeleton from '../components/skeletons/ItemCardSkeleton';
 import { useFocusEffect } from '@react-navigation/native';
 import api from '../utils/api';
 
@@ -15,7 +16,7 @@ const FeaturedItems = ({ items, navigation }) => {
 
   return (
     <View style={styles.featuredContainer}>
-      <Text style={styles.featuredTitle}>Deals of the Day</Text>
+      <Text style={styles.featuredTitle}>Featured Items</Text>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingLeft: 20 }}>
         {items.map(item => (
           <TouchableOpacity key={item._id} style={styles.featuredItemCard} onPress={() => navigation.navigate('ItemDetail', { item })}>
@@ -48,14 +49,16 @@ const HomeScreen = React.memo(({ navigation }) => {
 
     try {
       let queryString = `?search=${encodeURIComponent(searchQuery)}`;
+      let featuredQueryString = '';
+      
       if (communityFilter && userCommunity) {
         queryString += `&community=true`;
+        featuredQueryString = '?community=true';
       }
       
-      // *** THIS IS THE CORRECTED API CALL ***
       const [itemsData, featuredData] = await Promise.all([
-        api(`/items${queryString}`), // Corrected: Added '/items' before the query string
-        api('/items/featured')
+        api(`/items${queryString}`),
+        api(`/items/featured${featuredQueryString}`)
       ]);
 
       setItems(itemsData || []);
@@ -63,13 +66,6 @@ const HomeScreen = React.memo(({ navigation }) => {
 
     } catch (error) {
       console.error("Failed to fetch items:", error);
-      if (error.message && error.message.includes('Session expired')) {
-        console.log("[HOME] Session expired, user will be logged out");
-      } else {
-        console.error("Non-auth error fetching items:", error.message);
-      }
-      setItems([]);
-      setFeaturedItems([]);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -81,7 +77,7 @@ const HomeScreen = React.memo(({ navigation }) => {
         fetchItems();
     }, 500); // Debounce search
     return () => clearTimeout(timer);
-  }, [searchQuery, communityFilter]); // Removed fetchItems from dependency array to prevent loop
+  }, [searchQuery, communityFilter, fetchItems]);
   
   useFocusEffect(useCallback(() => { 
     fetchItems(); 
@@ -91,14 +87,20 @@ const HomeScreen = React.memo(({ navigation }) => {
     setRefreshing(true);
   }, []);
 
-  useEffect(() => {
-    if (refreshing) {
-      fetchItems();
-    }
-  }, [refreshing, fetchItems]);
+  const renderItem = useCallback(({ item }) => (
+    <View style={{paddingHorizontal: 20}}>
+      <ItemCard item={item} />
+    </View>
+  ), []);
 
-  const renderItem = useCallback(({ item }) => <ItemCard item={item} />, []);
   const keyExtractor = useCallback((item) => item._id, []);
+
+  const renderSkeleton = () => (
+    <View>
+      <ItemCardSkeleton />
+      <ItemCardSkeleton />
+    </View>
+  );
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -133,7 +135,7 @@ const HomeScreen = React.memo(({ navigation }) => {
       </View>
 
       {loading && !refreshing ? (
-        <ActivityIndicator size="large" color="#957DAD" style={styles.loader} />
+        renderSkeleton()
       ) : (
         <FlatList
           data={items}
@@ -209,11 +211,6 @@ const styles = StyleSheet.create({
   },
   listContent: {
     paddingBottom: 20,
-  },
-  loader: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   emptyText: {
     textAlign: 'center',

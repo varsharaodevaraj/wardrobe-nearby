@@ -16,6 +16,7 @@ const CommunitySchema = new Schema({
   suggestedBy: {
     type: Schema.Types.ObjectId,
     ref: 'User',
+    required: false, // Changed to false
   },
   createdAt: {
     type: Date,

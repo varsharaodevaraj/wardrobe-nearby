@@ -25,7 +25,7 @@ const UserSchema = new mongoose.Schema({
   },
   community: {
     type: String,
-    required: false,
+    required: true, // Make community mandatory
   },
   profileImage: { 
     type: String 

@@ -52,26 +52,11 @@ const ProfileScreen = () => {
   );
 
   const handleCommunitySave = async () => {
+    if (!selectedCommunity) {
+      return Alert.alert("Selection Required", "Please select a community.");
+    }
     await updateUserCommunity(selectedCommunity);
     setModalVisible(false);
-  };
-
-  const handleLeaveCommunity = () => {
-    Alert.alert(
-      "Leave Community",
-      "Are you sure you want to leave your community? Your items will no longer be associated with it.",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Leave",
-          style: "destructive",
-          onPress: async () => {
-            await updateUserCommunity(null);
-            setModalVisible(false);
-          },
-        },
-      ]
-    );
   };
 
   if (loading) {
@@ -215,15 +200,6 @@ const ProfileScreen = () => {
                 <Text style={styles.saveButtonText}>Save</Text>
               )}
             </TouchableOpacity>
-            {userCommunity && (
-              <TouchableOpacity
-                style={styles.leaveButton}
-                onPress={handleLeaveCommunity}
-                disabled={communityLoading}
-              >
-                <Text style={styles.leaveButtonText}>Leave Community</Text>
-              </TouchableOpacity>
-            )}
             <TouchableOpacity
               style={styles.cancelButton}
               onPress={() => setModalVisible(false)}
@@ -353,13 +329,6 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   saveButtonText: { color: "white", fontWeight: "bold", fontSize: 16 },
-  leaveButton: {
-    marginTop: 10,
-    padding: 15,
-    borderRadius: 10,
-    alignItems: "center",
-  },
-  leaveButtonText: { color: "#E74C3C", fontWeight: "bold", fontSize: 16 },
   cancelButton: {
     marginTop: 10,
     padding: 15,

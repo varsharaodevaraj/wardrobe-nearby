@@ -33,9 +33,7 @@ export const CommunityProvider = ({ children }) => {
   const updateUserCommunity = async (newCommunity) => {
     try {
       setLoading(true);
-      // Make the API call to update the community on the backend
       const { user: updatedUser } = await api('/users/community', 'PUT', { community: newCommunity });
-      // Update the user in the AuthContext so the whole app knows
       await updateUserInContext(updatedUser);
       setUserCommunity(updatedUser.community);
     } catch (error) {
@@ -50,6 +48,7 @@ export const CommunityProvider = ({ children }) => {
     userCommunity,
     updateUserCommunity,
     loading,
+    fetchCommunities, // Expose the fetch function
   };
 
   return (

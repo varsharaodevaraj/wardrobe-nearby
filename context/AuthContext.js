@@ -42,10 +42,11 @@ export const AuthProvider = ({ children }) => {
     }
   };
   
-  const signup = async (name, email, password) => {
+  // --- THIS IS THE CORRECTED FUNCTION ---
+  const signup = async (name, email, password, community) => {
     try {
-      // Community is no longer passed here
-      await api('/auth/signup', 'POST', { name, email, password });
+      // It now correctly includes 'community' in the API call
+      await api('/auth/signup', 'POST', { name, email, password, community });
     } catch (error) {
       console.error("[AUTH] Signup Error:", error);
       throw error;
@@ -62,7 +63,6 @@ export const AuthProvider = ({ children }) => {
     setUser(null);
   };
   
-  // NEW FUNCTION to update user data in context and storage
   const updateUserInContext = async (newUserData) => {
     try {
       await SecureStore.setItemAsync('user', JSON.stringify(newUserData));

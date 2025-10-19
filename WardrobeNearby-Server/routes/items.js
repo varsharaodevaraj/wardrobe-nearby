@@ -3,7 +3,7 @@ const router = express.Router();
 const auth = require('../middleware/auth');
 const Item = require('../models/Item');
 const User = require('../models/User');
-const mongoose = require('mongoose'); // Import mongoose
+const mongoose = require('mongoose');
 
 // @route   POST /api/items
 // @desc    Add new item
@@ -31,12 +31,12 @@ router.post('/', auth, async (req, res) => {
 // @desc    Get all items, with search and filtering
 router.get('/', auth, async (req, res) => {
   try {
-    const { search, size, color, occasion, sort, community } = req.query;
+    const { search, community } = req.query;
     let query = {};
     const currentUser = await User.findById(req.user.id);
 
     // Exclude items owned by the current user
-    query.user = { $ne: req.user.id };
+    query.user = { $ne: new mongoose.Types.ObjectId(req.user.id) };
 
     // If community filter is active, only show items from that community
     if (community === 'true' && currentUser.community) {
@@ -51,32 +51,54 @@ router.get('/', auth, async (req, res) => {
       ];
     }
     
-    const items = await Item.find(query).populate('user', 'name status').sort({ date: -1 });
+    const items = await Item.find(query).populate('user', 'name status averageRating totalRatings').sort({ date: -1 });
     res.json(items);
-  } catch (error)
- {
+  } catch (error) {
     console.error('Error fetching items:', error);
     res.status(500).send('Server Error');
   }
 });
 
 // @route   GET /api/items/featured
-// @desc    Get a few random items to be featured
+// @desc    Get a few random items to be featured, optionally filtered by community
 // @access  Private
 router.get('/featured', auth, async (req, res) => {
   try {
-    // Fetch 5 random items from the database, excluding the user's own items
-    const featuredItems = await Item.aggregate([
-      { $match: { user: { $ne: new mongoose.Types.ObjectId(req.user.id) } } },
-      { $sample: { size: 5 } }
-    ]);
+    const { community } = req.query;
+    const currentUser = await User.findById(req.user.id);
+
+    const pipeline = [
+      // Always exclude the user's own items
+      { $match: { user: { $ne: new mongoose.Types.ObjectId(req.user.id) } } }
+    ];
+
+    // If community filter is on, add a match stage for the user's community
+    if (community === 'true' && currentUser.community) {
+      pipeline.push({ $match: { community: currentUser.community } });
+    }
+
+    // Add the random sampling stage
+    pipeline.push({ $sample: { size: 5 } });
+    
+    // Populate user details after sampling
+    pipeline.push({
+      $lookup: {
+        from: 'users',
+        localField: 'user',
+        foreignField: '_id',
+        as: 'user'
+      }
+    });
+    pipeline.push({ $unwind: '$user' });
+
+
+    const featuredItems = await Item.aggregate(pipeline);
     res.json(featuredItems);
   } catch (error) {
     console.error('Error fetching featured items:', error);
     res.status(500).send('Server Error');
   }
 });
-
 
 // @route   GET /api/items/user/:userId
 // @desc    Get all items for a specific user
