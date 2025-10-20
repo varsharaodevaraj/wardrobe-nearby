@@ -1,109 +1,104 @@
-DrobeBy 🛍️📱
+<div align="center">
+  <img src="https://placehold.co/600x300/E0BBE4/4A235A/png?text=DrobeBy" alt="DrobeBy Banner">
+  <h1>DrobeBy 🛍️📱</h1>
+  <p><b>Rent. Sell. Discover.</b></p>
+  <p>A community-based, peer-to-peer marketplace for renting and selling items, built with React Native and Node.js.</p>
+</div>
 
-Rent. Sell. Discover.
+---
 
-A community-based, peer-to-peer marketplace for renting and selling items, built with React Native and Node.js.
+## 📋 Table of Contents
 
-✨ Key Features
+- [✨ Key Features](#-key-features)
+- [🚀 Tech Stack](#-tech-stack)
+- [📲 Demo & Installation](#-demo--installation)
+- [🛠️ Local Development Setup](#️-local-development-setup)
+- [📂 Project Structure](#-project-structure)
+- [📄 License](#-license)
 
-User Authentication: Secure user registration and login using JWT (JSON Web Tokens).
+---
 
-Item Listings: Users can list items for rent or sale, including details like name, description, category, price, and multiple photos.
+## ✨ Key Features
 
-Community-Based Filtering: Discover items exclusively from users within your college or local community.
+- 🔐 **User Authentication**  
+  Secure registration and login using **JWT (JSON Web Tokens)**.
 
-Real-Time Chat: Instantly communicate with other users to ask questions or coordinate transactions using a WebSocket-powered chat built with Socket.IO.
+- 📦 **Item Listings**  
+  Users can list items for rent or sale, with name, description, category, price, and multiple photos.
 
-Rental & Sales System: A full-fledged system to request rentals or purchases, which the owner can then accept or decline.
+- 🏘️ **Community-Based Filtering**  
+  Discover items from users within your college or local area.
 
-Wishlist: Save favorite items to a personal wishlist for later.
+- 💬 **Real-Time Chat**  
+  WebSocket-powered messaging built with **Socket.IO** for instant communication.
 
-Profile Management: Users can view and manage their own item listings and transaction history.
+- 🔄 **Rental & Sales System**  
+  Complete rental lifecycle: request, accept/decline, and manage transactions.
 
-🚀 Tech Stack
+- ❤️ **Wishlist**  
+  Save favorite items for quick access later.
 
-This is a full-stack MERN project, consisting of a mobile client and a backend server.
+- 👤 **Profile Management**  
+  View and manage your listings, profile info, and transaction history.
 
-Frontend (Mobile App)
+---
 
-Framework: React Native (with Expo)
+## 🚀 Tech Stack
 
-Navigation: React Navigation (Stack & Tabs)
+### 📱 Frontend (Mobile App)
 
-State Management: React Context API
+- **Framework:** React Native (Expo)
+- **Navigation:** React Navigation (Stack & Tabs)
+- **State Management:** React Context API
+- **HTTP Client:** `fetch` API
+- **Real-Time:** `socket.io-client`
+- **Camera/Gallery Access:** `expo-image-picker`
 
-HTTP Client: fetch API for communicating with the backend
+### 🖥️ Backend (Server)
 
-Real-Time Client: socket.io-client
+- **Runtime:** Node.js
+- **Framework:** Express.js
+- **Database:** MongoDB (via Mongoose)
+- **Authentication:** JSON Web Tokens (JWT), bcrypt
+- **Real-Time Communication:** Socket.IO
+- **Deployment:** Render
+- **CI/CD:** GitHub Push Triggers (Automated Deployments)
 
-Permissions & Hardware: expo-image-picker for camera and gallery access
+---
 
-Backend (Server)
+## 📲 Demo & Installation
 
-Framework: Node.js with Express.js
+> The backend API is live on **Render**. The mobile app is available via an Android `.apk`.
 
-Database: MongoDB (with Mongoose)
+### 🔗 Android Installation
 
-Authentication: JSON Web Tokens (JWT)
+Scan the QR code below (replace with real QR screenshot from EAS):
 
-Real-Time Communication: Socket.IO
+<img width="308" height="298" alt="Screenshot 2025-10-20 at 3 49 35 PM" src="https://github.com/user-attachments/assets/952a2081-a2d2-4b70-906d-509f69487ba7" />
 
-Deployment: Render (for the live server)
+> Scanning this QR code will download the `.apk` file.  
+> ⚠️ You may need to enable "Install from unknown sources" on your Android device.
 
-CI/CD: Automated deployments triggered by GitHub pushes.
+---
 
-📲 Demo & Installation
+## 🛠️ Local Development Setup
 
-The backend API is live and deployed on Render. You can install the Android application on your device by scanning the QR code below.
+You’ll need two terminals for the backend and frontend.
 
-Note to User: You will need to replace the placeholder image below with a screenshot of the QR code from your EAS Build Page.
+### 1️⃣ Backend (Express + MongoDB)
 
-Scanning this QR code will download the .apk file. You may need to enable "Install from unknown sources" on your Android device.
-
-🛠️ Local Development Setup
-
-To run this project locally, you will need two terminal windows.
-
-1. Backend Server (WardrobeNearby-Server)
-
-# Navigate to the server directory
+```bash
+# Navigate to server folder
 cd wardrobe-nearby/WardrobeNearby-Server
 
 # Install dependencies
 npm install
 
-# Create a .env file based on the .env.example
-# Add your MongoDB connection string and a JWT secret
+# Create your environment config
+cp .env.example .env
+# Then edit .env to include:
 # MONGO_URI=your_mongodb_uri
 # JWT_SECRET=your_jwt_secret
 
-# Start the server
+# Start server
 npm start
-
-
-The server will be running on http://localhost:3000.
-
-2. Frontend Client (React Native)
-
-# Navigate to the root project directory
-cd wardrobe-nearby
-
-# Install dependencies
-npm install
-
-# Start the Metro bundler for Expo Go
-# You will need an Android/iOS simulator or a physical device with the Expo Go app
-npm start
-
-
-📂 Project Structure
-
-The repository is a monorepo containing both the client and server code.
-
-/ (root): Contains the React Native (Expo) mobile application.
-
-/WardrobeNearby-Server: Contains the Node.js, Express, and MongoDB backend server.
-
-📄 License
-
-This project is licensed under the MIT License.
