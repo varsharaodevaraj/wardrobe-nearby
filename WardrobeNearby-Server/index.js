@@ -2,6 +2,7 @@ const express = require('express');
 const mongoose = require('mongoose');
 const http = require('http');
 const { Server } = require('socket.io');
+const cors = require('cors'); // <-- ADD THIS LINE
 require('dotenv').config();
 
 // imports
@@ -29,6 +30,7 @@ mongoose.connect(process.env.MONGO_URI)
   .catch(err => console.error('MongoDB connection error:', err));
 
 // Middleware
+app.use(cors()); // <-- ADD THIS LINE to allow requests from your app
 app.use(express.json());
 
 // API Routes
